@@ -24,6 +24,7 @@ wheels/
 # Virtual Environment
 venv/
 ENV/
+.env
 
 # IDE
 .idea/
@@ -37,13 +38,24 @@ ENV/
 
 # Logs
 *.log
+.coverage
+coverage.xml
+.pytest_cache/
 
 # Temp files
 *.tmp
 *.temp
 *.xlsx
 !demo/*.xlsx
+!tests/data/*.xlsx
 
 # OS
 .DS_Store
-Thumbs.db 
+Thumbs.db
+
+# Project specific
+data/*.xlsx
+previews/*
+!previews/.gitkeep
+templates/*
+!templates/.gitkeep 

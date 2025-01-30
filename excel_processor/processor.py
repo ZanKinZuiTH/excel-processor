@@ -157,6 +157,85 @@ class ExcelProcessor:
             logger.error(f"เกิดข้อผิดพลาดในการบันทึกเทมเพลต: {str(e)}")
             raise
     
+    def clean_data(self) -> None:
+        """
+        ทำความสะอาดข้อมูล
+        
+        Tips สำหรับนักศึกษา:
+        - จัดการค่า null
+        - ลบข้อมูลซ้ำ
+        - แปลงรูปแบบข้อมูล
+        """
+        if self.df is None:
+            self.load_file()
+        
+        # ลบคอลัมน์ที่ไม่มีชื่อ
+        unnamed_cols = [col for col in self.df.columns if 'Unnamed:' in str(col)]
+        self.df = self.df.drop(columns=unnamed_cols)
+        
+        # จัดการค่า null
+        self.df = self.df.fillna({
+            'ชื่อ-นามสกุล': 'ไม่ระบุ',
+            'ที่อยู่': 'ไม่ระบุ',
+            'เลขประจำตัวผู้เสียภาษี': '0000000000'
+        })
+        
+        # ลบข้อมูลซ้ำ
+        self.df = self.df.drop_duplicates()
+        
+        # แปลงรูปแบบวันที่
+        date_columns = self.df.select_dtypes(include=['datetime64']).columns
+        for col in date_columns:
+            self.df[col] = pd.to_datetime(self.df[col]).dt.strftime('%Y-%m-%d')
+        
+        logger.info(f"ทำความสะอาดข้อมูลสำเร็จ: {len(self.df)} แถว")
+    
+    def analyze_data(self) -> Dict[str, Any]:
+        """
+        วิเคราะห์ข้อมูลเชิงลึก
+        
+        Returns:
+            Dict[str, Any]: ผลการวิเคราะห์
+        
+        Tips สำหรับนักศึกษา:
+        - คำนวณสถิติพื้นฐาน
+        - วิเคราะห์แนวโน้ม
+        - สร้างการจัดกลุ่ม
+        """
+        if self.df is None:
+            self.load_file()
+        
+        # สถิติพื้นฐาน
+        numeric_stats = {}
+        for col in self.df.select_dtypes(include=['int64', 'float64']).columns:
+            numeric_stats[col] = {
+                "count": len(self.df[col]),
+                "mean": float(self.df[col].mean()),
+                "std": float(self.df[col].std()),
+                "min": float(self.df[col].min()),
+                "max": float(self.df[col].max())
+            }
+        
+        # การจัดกลุ่ม
+        groupby_results = {}
+        for col in self.df.select_dtypes(include=['object']).columns:
+            groupby_results[col] = self.df[col].value_counts().to_dict()
+        
+        # แนวโน้มตามเวลา (ถ้ามี)
+        time_series = {}
+        date_columns = self.df.select_dtypes(include=['datetime64']).columns
+        for col in date_columns:
+            time_series[col] = self.df.groupby(col).size().to_dict()
+        
+        analysis_results = {
+            "numeric_stats": numeric_stats,
+            "groupby_results": groupby_results,
+            "time_series": time_series
+        }
+        
+        logger.info("วิเคราะห์ข้อมูลสำเร็จ")
+        return analysis_results
+
     def validate_data(self) -> Dict[str, Any]:
         """
         ตรวจสอบความถูกต้องของข้อมูล
@@ -172,11 +251,51 @@ class ExcelProcessor:
         if self.df is None:
             self.load_file()
         
-        validation_results = {
+        # ตรวจสอบค่า null
+        null_check = {
             "missing_values": self.df.isnull().sum().to_dict(),
-            "duplicates": len(self.df[self.df.duplicated()]),
-            "total_rows": len(self.df)
+            "missing_percentage": (self.df.isnull().sum() / len(self.df) * 100).to_dict()
         }
         
-        logger.info(f"ตรวจสอบข้อมูลสำเร็จ: {validation_results}")
+        # ตรวจสอบค่าซ้ำ
+        duplicate_check = {
+            "duplicates": len(self.df[self.df.duplicated()]),
+            "duplicate_percentage": len(self.df[self.df.duplicated()]) / len(self.df) * 100
+        }
+        
+        # ตรวจสอบรูปแบบข้อมูล
+        data_types = {
+            col: str(dtype) for col, dtype in self.df.dtypes.items()
+        }
+        
+        # ตรวจสอบค่าที่ผิดปกติ (สำหรับคอลัมน์ตัวเลข)
+        outliers = {}
+        for col in self.df.select_dtypes(include=['int64', 'float64']).columns:
+            Q1 = self.df[col].quantile(0.25)
+            Q3 = self.df[col].quantile(0.75)
+            IQR = Q3 - Q1
+            outliers[col] = {
+                "outliers_count": len(self.df[(self.df[col] < (Q1 - 1.5 * IQR)) | (self.df[col] > (Q3 + 1.5 * IQR))]),
+                "min": float(self.df[col].min()),
+                "max": float(self.df[col].max()),
+                "mean": float(self.df[col].mean()),
+                "median": float(self.df[col].median())
+            }
+        
+        validation_results = {
+            "null_check": null_check,
+            "duplicate_check": duplicate_check,
+            "data_types": data_types,
+            "outliers": outliers,
+            "total_rows": len(self.df),
+            "total_columns": len(self.df.columns)
+        }
+        
+        # บันทึก log
+        logger.info(f"ตรวจสอบข้อมูลสำเร็จ: {len(self.df)} แถว")
+        if null_check["missing_values"]:
+            logger.warning(f"พบค่า null: {null_check['missing_values']}")
+        if duplicate_check["duplicates"]:
+            logger.warning(f"พบข้อมูลซ้ำ: {duplicate_check['duplicates']} แถว")
+        
         return validation_results 
