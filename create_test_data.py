@@ -1,14 +1,16 @@
 import pandas as pd
+import shutil
+from pathlib import Path
 
-# สร้างข้อมูลทดสอบ
-test_data = {
-    'ชื่อ-นามสกุล': ['บริษัท ทดสอบ จำกัด'],
-    'ที่อยู่': ['123 ถ.ทดสอบ ต.ทดสอบ อ.ทดสอบ จ.ทดสอบ 12345'],
-    'เลขประจำตัวผู้เสียภาษี': ['1234567890123']
-}
+# คัดลอกไฟล์ต้นฉบับไปยังโฟลเดอร์ tests/data
+source_file = "นางสาว ราตรี สกุลวงษ์.xlsx"
+target_dir = Path("tests/data")
+target_file = target_dir / "test_invoice.xlsx"
 
-# สร้าง DataFrame
-df = pd.DataFrame(test_data)
+# สร้างโฟลเดอร์ถ้ายังไม่มี
+target_dir.mkdir(parents=True, exist_ok=True)
 
-# บันทึกเป็นไฟล์ Excel
-df.to_excel('tests/data/test_invoice.xlsx', index=False) 
+# คัดลอกไฟล์
+shutil.copy2(source_file, target_file)
+
+print(f"คัดลอกไฟล์ {source_file} ไปยัง {target_file} สำเร็จ") 
