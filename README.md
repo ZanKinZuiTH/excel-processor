@@ -3,7 +3,15 @@
 ระบบประมวลผลและจัดการเอกสาร Excel อัจฉริยะ พร้อมระบบจัดการการพิมพ์อัตโนมัติ
 
 [![CI/CD](https://github.com/ZanKinZuiTH/excel-processor/actions/workflows/ci.yml/badge.svg)](https://github.com/ZanKinZuiTH/excel-processor/actions/workflows/ci.yml)
+[![GitHub release (latest by date)](https://img.shields.io/github/v/release/ZanKinZuiTH/excel-processor)](https://github.com/ZanKinZuiTH/excel-processor/releases)
+[![GitHub issues](https://img.shields.io/github/issues/ZanKinZuiTH/excel-processor)](https://github.com/ZanKinZuiTH/excel-processor/issues)
+[![GitHub pull requests](https://img.shields.io/github/issues-pr/ZanKinZuiTH/excel-processor)](https://github.com/ZanKinZuiTH/excel-processor/pulls)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+[![Python Version](https://img.shields.io/badge/python-3.8%2B-blue)](https://www.python.org/downloads/)
+[![Code style: black](https://img.shields.io/badge/code%20style-black-000000.svg)](https://github.com/psf/black)
+[![Documentation Status](https://img.shields.io/badge/docs-passing-brightgreen)](https://github.com/ZanKinZuiTH/excel-processor/wiki)
+
+[English](README_EN.md) | [ภาษาไทย](README.md)
 
 ## 📋 การติดตั้ง
 
