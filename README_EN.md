@@ -8,6 +8,7 @@
 - [Key Features](#-key-features)
 - [Installation](#-installation)
 - [Usage](#-usage)
+- [Core Features](#-core-features)
 - [Project Structure](#-project-structure)
 - [Testing](#-testing)
 - [Future Development](#-future-development)
@@ -16,7 +17,9 @@
 ## ⭐ Key Features
 - 🚀 **Easy to Use**: Install and start using within 5 minutes
 - 🔄 **Automatic Processing**: Automated Excel data analysis
-- 🔒 **Secure**: Protection of sensitive data
+- 🔍 **Data Validation**: Detect null values, duplicates, and outliers
+- 📊 **Deep Analysis**: Basic statistics, grouping, and trends
+- 🧹 **Data Cleaning**: Automatic handling of nulls and duplicates
 - 🌐 **Bilingual**: Thai/English support
 - ⚙️ **Customizable**: Flexible configuration options
 - 📱 **Responsive**: Works on both Desktop and Mobile
@@ -25,7 +28,7 @@
 1. Install Python 3.8 or higher
 ```bash
 # Download the project
-git clone https://github.com/yourusername/excel-processor.git
+git clone https://github.com/BRXG/excel-processor.git
 cd excel-processor
 
 # Install dependencies
@@ -54,6 +57,46 @@ python cli.py test
 python cli.py version
 ```
 
+## 🛠️ Core Features
+
+### 1. Data Processing
+```python
+from excel_processor import ExcelProcessor
+
+# Create instance
+processor = ExcelProcessor("data.xlsx")
+
+# Process data
+result = processor.process_file()
+```
+
+### 2. Data Validation
+```python
+# Validate data
+validation = processor.validate_data()
+
+# View validation results
+print(f"Null values: {validation['null_check']}")
+print(f"Duplicates: {validation['duplicate_check']}")
+print(f"Outliers: {validation['outliers']}")
+```
+
+### 3. Data Analysis
+```python
+# Analyze data
+analysis = processor.analyze_data()
+
+# View analysis results
+print(f"Statistics: {analysis['numeric_stats']}")
+print(f"Grouping: {analysis['groupby_results']}")
+```
+
+### 4. Data Cleaning
+```python
+# Clean data
+processor.clean_data()
+```
+
 ## 📁 Project Structure
 ```
 excel_processor/
@@ -78,6 +121,8 @@ pytest tests/ --cov=./ --cov-report=xml
 2. Implement real-time reporting
 3. Develop external API services
 4. Add support for additional file formats
+5. Add automatic data pattern detection
+6. Develop data correction recommendations
 
 ## 👨‍💻 Developers
 - BRXG Co. Development Team
