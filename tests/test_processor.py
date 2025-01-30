@@ -1,63 +1,130 @@
-import unittest
-from pathlib import Path
-from main import ExcelProcessor
-import json
+"""
+ไฟล์ทดสอบสำหรับ Excel Processor
+
+สำหรับนักศึกษา:
+1. การเขียนเทสต์:
+   - ใช้ pytest framework
+   - แยกเทสต์เป็นส่วนๆ ตามฟังก์ชัน
+   - ใช้ fixtures เพื่อจัดการข้อมูลทดสอบ
+
+2. การทดสอบการทำงาน:
+   - ทดสอบการอ่านไฟล์ Excel
+   - ทดสอบการแปลงข้อมูล
+   - ทดสอบการจัดการข้อผิดพลาด
+
+3. การพัฒนาต่อยอด:
+   - เพิ่มการทดสอบ edge cases
+   - เพิ่มการทดสอบประสิทธิภาพ
+   - เพิ่มการทดสอบความปลอดภัย
+"""
+
+import pytest
 import os
+from pathlib import Path
+from processor import ExcelProcessor
 
-class TestExcelProcessor(unittest.TestCase):
-    def setUp(self):
-        """เตรียมข้อมูลสำหรับการทดสอบ"""
-        self.test_file = "demo/invoice_template.xlsx"
-        self.processor = ExcelProcessor(self.test_file)
+@pytest.fixture
+def test_file_path():
+    """
+    Fixture สำหรับไฟล์ทดสอบ
+    
+    Tips สำหรับนักศึกษา:
+    - สร้างไฟล์ทดสอบที่มีโครงสร้างหลากหลาย
+    - ใช้ tmp_path สำหรับไฟล์ชั่วคราว
+    - เพิ่มข้อมูลทดสอบที่ครอบคลุม
+    """
+    return Path("tests/data/test_invoice.xlsx")
 
-    def test_extract_customer_info(self):
-        """ทดสอบการแยกข้อมูลลูกค้า"""
-        # ทดสอบกรณีข้อมูลถูกต้อง
-        test_data = "นางสาว ราตรี สกุลวงษ์"
-        result = self.processor.extract_customer_info(test_data)
-        self.assertEqual(result["title"], "นางสาว")
-        self.assertEqual(result["first_name"], "ราตรี")
-        self.assertEqual(result["last_name"], "สกุลวงษ์")
+@pytest.fixture
+def processor(test_file_path):
+    """
+    Fixture สำหรับ ExcelProcessor
+    
+    Tips สำหรับนักศึกษา:
+    - ตั้งค่าเริ่มต้นที่เหมาะสม
+    - จัดการทรัพยากรอย่างถูกต้อง
+    - เพิ่มการตรวจสอบความพร้อม
+    """
+    return ExcelProcessor(test_file_path)
 
-        # ทดสอบกรณีข้อมูลไม่ถูกต้อง
-        test_data = "ไม่มีคำนำหน้า"
-        result = self.processor.extract_customer_info(test_data)
-        self.assertIsNone(result)
+def test_extract_customer_info(processor):
+    """
+    ทดสอบการดึงข้อมูลลูกค้า
+    
+    Tips สำหรับนักศึกษา:
+    - ทดสอบรูปแบบข้อมูลที่หลากหลาย
+    - ตรวจสอบการจัดการข้อมูลที่ไม่สมบูรณ์
+    - เพิ่มการทดสอบข้อผิดพลาด
+    """
+    info = processor.extract_customer_info()
+    assert isinstance(info, dict)
+    assert "name" in info
+    assert "address" in info
+    assert "tax_id" in info
 
-    def test_process_file(self):
-        """ทดสอบการประมวลผลไฟล์"""
-        if Path(self.test_file).exists():
-            result = self.processor.process_file()
-            self.assertIsInstance(result, dict)
-            self.assertTrue(len(result) > 0)
+def test_process_file(processor):
+    """
+    ทดสอบการประมวลผลไฟล์
+    
+    Tips สำหรับนักศึกษา:
+    - ทดสอบการแปลงข้อมูลที่ซับซ้อน
+    - ตรวจสอบผลลัพธ์ที่ได้
+    - เพิ่มการทดสอบประสิทธิภาพ
+    """
+    result = processor.process_file()
+    assert result is not None
+    assert "processed_data" in result
+    assert "summary" in result
 
-    def test_save_template(self):
-        """ทดสอบการบันทึกเทมเพลต"""
-        test_data = {
-            "Sheet1": {
-                "content": [
-                    {"name": "Test User", "value": 100}
-                ],
-                "structure": [
-                    {"row": 1, "type": "header"}
-                ]
-            }
-        }
-        self.processor.save_as_template("test_template", test_data)
-        
-        # ตรวจสอบว่ามีการบันทึกลงฐานข้อมูล
-        with self.processor.engine.connect() as conn:
-            result = conn.execute(
-                self.processor.template_table.select().where(
-                    self.processor.template_table.c.name == "test_template"
-                )
-            ).first()
-            self.assertIsNotNone(result)
+def test_save_template(processor, tmp_path):
+    """
+    ทดสอบการบันทึกเทมเพลต
+    
+    Tips สำหรับนักศึกษา:
+    - ทดสอบการบันทึกในรูปแบบต่างๆ
+    - ตรวจสอบความถูกต้องของไฟล์
+    - เพิ่มการทดสอบความปลอดภัย
+    """
+    output_path = tmp_path / "output.xlsx"
+    processor.save_template(output_path)
+    assert output_path.exists()
+    assert output_path.stat().st_size > 0
 
-    def tearDown(self):
-        """ทำความสะอาดหลังการทดสอบ"""
-        if os.path.exists("excel_data.db"):
-            os.remove("excel_data.db")
+def test_invalid_file():
+    """
+    ทดสอบการจัดการไฟล์ที่ไม่ถูกต้อง
+    
+    Tips สำหรับนักศึกษา:
+    - ทดสอบไฟล์ที่ไม่มีอยู่
+    - ทดสอบไฟล์ที่เสียหาย
+    - เพิ่มการทดสอบความปลอดภัย
+    """
+    with pytest.raises(FileNotFoundError):
+        ExcelProcessor("nonexistent.xlsx")
 
-if __name__ == '__main__':
-    unittest.main() 
+def test_large_file(tmp_path):
+    """
+    ทดสอบการจัดการไฟล์ขนาดใหญ่
+    
+    Tips สำหรับนักศึกษา:
+    - ทดสอบประสิทธิภาพ
+    - ตรวจสอบการใช้หน่วยความจำ
+    - เพิ่มการทดสอบการทำงานแบบ async
+    """
+    # TODO: เพิ่มการทดสอบไฟล์ขนาดใหญ่
+    pass
+
+def test_concurrent_processing():
+    """
+    ทดสอบการประมวลผลพร้อมกัน
+    
+    Tips สำหรับนักศึกษา:
+    - ทดสอบการทำงานแบบ concurrent
+    - ตรวจสอบการแย่งใช้ทรัพยากร
+    - เพิ่มการทดสอบ race conditions
+    """
+    # TODO: เพิ่มการทดสอบการประมวลผลพร้อมกัน
+    pass
+
+if __name__ == "__main__":
+    pytest.main(["-v"]) 

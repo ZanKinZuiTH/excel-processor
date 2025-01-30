@@ -1,6 +1,6 @@
 # 🚀 Excel Document Processor & Automation System
 
-Intelligent Excel document processing and management system with automatic printing system
+An intelligent Excel document processing and management system with automated printing capabilities.
 
 [![CI/CD](https://github.com/ZanKinZuiTH/excel-processor/actions/workflows/ci.yml/badge.svg)](https://github.com/ZanKinZuiTH/excel-processor/actions/workflows/ci.yml)
 [![GitHub release (latest by date)](https://img.shields.io/github/v/release/ZanKinZuiTH/excel-processor)](https://github.com/ZanKinZuiTH/excel-processor/releases)
@@ -44,26 +44,26 @@ docker-compose up --build
 
 The system is designed to solve Excel document management problems in large organizations with the following key features:
 
-### 🎯 Key Features
+### 🎯 Core Features
 
-1. **Automatic Document Processing**
-   - Automatic separation of data and document structure
-   - Preserve original layout and formatting
-   - Support multiple file processing simultaneously
+1. **Automated Document Processing**
+   - Automatic data and structure extraction
+   - Preserves original layout and formatting
+   - Supports concurrent file processing
 
 2. **Intelligent Template System**
-   - Create and store templates from original documents
+   - Create and store templates from master documents
    - Quick template reuse
    - Customizable formatting
 
 3. **Print Management System**
    - Automatic print queue management
-   - Support batch printing
+   - Batch printing support
    - Flexible printer selection
 
 4. **Easy-to-use API**
    - Standard RESTful API
-   - Support integration with other systems
+   - Integration with other systems
    - Complete API documentation
 
 ## 🎮 Usage
@@ -112,13 +112,13 @@ curl -X POST "http://localhost:8000/print/" \
 
 ## 📊 Results
 
-1. **Performance**
+1. **Efficiency**
    - 10x faster document processing than manual
    - Unlimited concurrent processing
    - Low system resource usage
 
 2. **Accuracy**
-   - Error rate < 0.1%
+   - < 0.1% error rate
    - 100% original format preservation
    - Full traceability
 
@@ -136,10 +136,45 @@ curl -X POST "http://localhost:8000/print/" \
 
 ## 📞 Support
 
-For support and inquiries:
+For issues or assistance:
 - GitHub Issues: [https://github.com/ZanKinZuiTH/excel-processor/issues](https://github.com/ZanKinZuiTH/excel-processor/issues)
 - Email: zankinzuith@example.com
 
 ## 📝 License
 
-This project is under [MIT License](LICENSE) 
+This project is under [MIT License](LICENSE)
+
+## 📋 New Features
+
+### 1. 🔒 Security System (`security.py`)
+- **JWT Authentication**: Token-based authentication system
+- **Data Encryption**: Protect sensitive information
+- **File Validation**: Prevent unsafe files
+- **Token Management**: Including revocation and renewal
+
+### 2. ⚙️ Configuration Management (`config.py`)
+- **Environment Variables**: Config management via `.env`
+- **Pydantic Settings**: Settings validation
+- **Type Hints**: Development and debugging aid
+
+### 3. 🧪 Improved Testing System (`tests/`)
+- **Pytest Framework**: Replaces unittest
+- **Fixtures**: Test data management
+- **Error Testing**: Error handling tests
+
+## 🎓 Development Guidelines
+
+### 1. Adding Security Features
+- Add AES encryption
+- Add Rate Limiting
+- Add attack detection
+
+### 2. Adding Analysis Features
+- Data pattern analysis
+- Anomaly detection
+- Automatic reporting
+
+### 3. Adding Cache System
+- Cache frequently used data
+- Reduce database access
+- Improve performance 
