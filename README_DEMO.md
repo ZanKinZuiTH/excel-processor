@@ -269,9 +269,9 @@ data = api.get_data(response["id"])
 3. ระบบทำงานช้า: ลองลด batch size ในการประมวลผล
 
 ### การติดต่อสนับสนุน
-- Email: support@example.com
-- Line: @excelprocessor
-- GitHub Issues: [รายงานปัญหา](https://github.com/yourusername/excel-processor/issues)
+- Email: support@brxg.co.th
+- Line: @brxgdev
+- GitHub Issues: [รายงานปัญหา](https://github.com/BRXG/excel-processor/issues)
 
 ---
-⚡️ เริ่มต้นใช้งานวันนี้ที่ [Excel Processor](https://github.com/ZanKinZuiTH/excel-processor) 
+⚡️ พัฒนาโดย [BRXG Co.](https://brxg.co.th) - Making Excellence Simple 

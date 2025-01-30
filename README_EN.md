@@ -1,7 +1,7 @@
 # 📊 Excel Processor - Intelligent Excel Processing System
 
 [![Python Version](https://img.shields.io/badge/python-3.8%2B-blue)]()
-[![License](https://img.shields.io/badge/license-MIT-green)]()
+[![License](https://img.shields.io/badge/license-BRXG%20Co.-green)]()
 [![Tests](https://img.shields.io/badge/tests-passing-brightgreen)]()
 
 ## 📌 Table of Contents
@@ -80,19 +80,22 @@ pytest tests/ --cov=./ --cov-report=xml
 4. Add support for additional file formats
 
 ## 👨‍💻 Developers
-- Mr. A - Project Lead
-- Mr. B - Backend Developer
-- Mr. C - Frontend Developer
+- BRXG Co. Development Team
+- Email: contact@brxg.co.th
+- Website: https://brxg.co.th
 
 ## 📝 License
-MIT License
+Copyright © 2024 BRXG Co. All rights reserved.
+
+This software is proprietary and confidential. 
+Unauthorized copying of this file, via any medium is strictly prohibited.
+Written by BRXG Development Team <dev@brxg.co.th>, 2024
 
 ## 📫 Support
-
 If you encounter issues or need assistance, contact us at:
-- 🐛 [GitHub Issues](https://github.com/ZanKinZuiTH/excel-processor/issues)
-- 📧 Email: support@example.com
-- 💬 Line Official: @excelprocessor
+- 🐛 [GitHub Issues](https://github.com/BRXG/excel-processor/issues)
+- 📧 Email: support@brxg.co.th
+- 💬 Line Official: @brxgdev
 
 ## 📄 License
 

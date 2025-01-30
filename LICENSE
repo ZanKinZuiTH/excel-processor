@@ -1,21 +1,39 @@
-MIT License
+BRXG Co. Proprietary License
 
-Copyright (c) 2024 Excel Processor
+Copyright (c) 2024 BRXG Co. All Rights Reserved.
 
-Permission is hereby granted, free of charge, to any person obtaining a copy
-of this software and associated documentation files (the "Software"), to deal
-in the Software without restriction, including without limitation the rights
-to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
-copies of the Software, and to permit persons to whom the Software is
-furnished to do so, subject to the following conditions:
+1. Definitions
+"Software" refers to the Excel Processor software and associated documentation files.
+"BRXG Co." refers to the company and copyright holder of the Software.
+"User" refers to any person or entity using the Software.
 
-The above copyright notice and this permission notice shall be included in all
-copies or substantial portions of the Software.
+2. License Grant
+BRXG Co. grants User a non-exclusive, non-transferable license to use the Software subject to the following conditions:
 
-THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
-AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
-LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
-OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
-SOFTWARE. 
+3. Restrictions
+- User may not distribute, sell, lease, rent, lend, or sublicense the Software.
+- User may not modify, reverse-engineer, decompile, or disassemble the Software.
+- User may not remove or alter any proprietary notices in the Software.
+
+4. Proprietary Rights
+The Software is proprietary to BRXG Co. and is protected by copyright laws and international treaty provisions.
+
+5. Support
+Technical support is provided exclusively through official channels:
+- Email: support@brxg.co.th
+- Line: @brxgdev
+- Website: https://brxg.co.th
+
+6. Warranty Disclaimer
+THE SOFTWARE IS PROVIDED "AS IS" WITHOUT WARRANTY OF ANY KIND.
+
+7. Limitation of Liability
+IN NO EVENT SHALL BRXG CO. BE LIABLE FOR ANY DAMAGES ARISING OUT OF THE USE OF THE SOFTWARE.
+
+8. Termination
+This license is effective until terminated. BRXG Co. may terminate this license at any time if User fails to comply with its terms.
+
+For licensing inquiries, contact:
+BRXG Co.
+Email: license@brxg.co.th
+Website: https://brxg.co.th 

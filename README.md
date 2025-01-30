@@ -1,7 +1,7 @@
 # 📊 Excel Processor - ระบบประมวลผล Excel อัจฉริยะ
 
 [![Python Version](https://img.shields.io/badge/python-3.8%2B-blue)]()
-[![License](https://img.shields.io/badge/license-MIT-green)]()
+[![License](https://img.shields.io/badge/license-BRXG%20Co.-green)]()
 [![Tests](https://img.shields.io/badge/tests-passing-brightgreen)]()
 
 ## 📌 สารบัญ
@@ -80,9 +80,13 @@ pytest tests/ --cov=./ --cov-report=xml
 4. เพิ่มการสนับสนุนไฟล์รูปแบบอื่น
 
 ## 👨‍💻 ผู้พัฒนา
-- นาย ก - Project Lead
-- นาย ข - Backend Developer
-- นาย ค - Frontend Developer
+- BRXG Co. Development Team
+- Email: contact@brxg.co.th
+- Website: https://brxg.co.th
 
 ## 📝 License
-MIT License 
+Copyright © 2024 BRXG Co. All rights reserved.
+
+This software is proprietary and confidential. 
+Unauthorized copying of this file, via any medium is strictly prohibited.
+Written by BRXG Development Team <dev@brxg.co.th>, 2024 
