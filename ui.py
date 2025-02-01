@@ -7,6 +7,7 @@ from excel_processor.processor import ExcelProcessor
 import pandas as pd
 import json
 import os
+from excel_processor.form_manager import FormManager
 
 # ตั้งค่าหน้าเพจ
 st.set_page_config(
@@ -218,4 +219,215 @@ else:
     - GitHub Issues
     - อีเมล: support@example.com
     - Line Official: @excelprocessor
-    """) 
+    """)
+
+"""
+โมดูลสำหรับส่วนติดต่อผู้ใช้
+"""
+
+def init_session_state():
+    """เริ่มต้น Session State"""
+    if 'form_manager' not in st.session_state:
+        st.session_state.form_manager = FormManager(
+            storage_path='templates',
+            db_url=st.secrets.get("DATABASE_URL")
+        )
+
+def show_form_management():
+    """แสดงส่วนจัดการฟอร์ม"""
+    st.header("📝 จัดการรูปแบบฟอร์ม")
+    
+    # เมนูด้านข้าง
+    menu = st.sidebar.selectbox(
+        "เลือกการทำงาน",
+        ["เรียนรู้ฟอร์มใหม่", "จัดการฟอร์มที่มี", "นำเข้าข้อมูล", "ดูข้อมูล"]
+    )
+    
+    if menu == "เรียนรู้ฟอร์มใหม่":
+        show_learn_form()
+    elif menu == "จัดการฟอร์มที่มี":
+        show_manage_forms()
+    elif menu == "นำเข้าข้อมูล":
+        show_import_data()
+    else:
+        show_view_data()
+
+def show_learn_form():
+    """แสดงส่วนเรียนรู้ฟอร์มใหม่"""
+    st.subheader("🎓 เรียนรู้ฟอร์มใหม่")
+    
+    # อัพโหลดไฟล์
+    uploaded_file = st.file_uploader(
+        "อัพโหลดไฟล์ Excel ตัวอย่าง",
+        type=['xlsx', 'xls']
+    )
+    
+    if uploaded_file:
+        # แสดงตัวอย่างข้อมูล
+        df = pd.read_excel(uploaded_file)
+        st.write("ตัวอย่างข้อมูล:")
+        st.dataframe(df.head())
+        
+        # กรอกข้อมูลฟอร์ม
+        form_name = st.text_input("ชื่อฟอร์ม")
+        description = st.text_area("คำอธิบาย")
+        
+        if st.button("สร้างฟอร์ม"):
+            try:
+                # บันทึกไฟล์ชั่วคราว
+                with open("temp.xlsx", "wb") as f:
+                    f.write(uploaded_file.getbuffer())
+                
+                # เรียนรู้ฟอร์ม
+                template = st.session_state.form_manager.learn_from_excel(
+                    "temp.xlsx",
+                    form_name,
+                    description
+                )
+                
+                st.success(f"สร้างฟอร์ม {form_name} สำเร็จ!")
+                
+            except Exception as e:
+                st.error(f"เกิดข้อผิดพลาด: {str(e)}")
+
+def show_manage_forms():
+    """แสดงส่วนจัดการฟอร์มที่มี"""
+    st.subheader("📋 จัดการฟอร์มที่มี")
+    
+    # โหลดรายการฟอร์ม
+    templates = st.session_state.form_manager.load_templates()
+    
+    if not templates:
+        st.info("ยังไม่มีฟอร์ม กรุณาสร้างฟอร์มใหม่")
+        return
+        
+    # เลือกฟอร์ม
+    selected = st.selectbox(
+        "เลือกฟอร์ม",
+        [t.name for t in templates]
+    )
+    
+    template = next(t for t in templates if t.name == selected)
+    
+    # แสดงรายละเอียด
+    st.write("รายละเอียด:", template.description)
+    st.write("คอลัมน์:")
+    for col in template.columns:
+        st.write(f"- {col['name']} ({col['data_type']})")
+        
+    # ปุ่มลบ
+    if st.button("ลบฟอร์ม"):
+        try:
+            st.session_state.form_manager.delete_template(selected)
+            st.success("ลบฟอร์มสำเร็จ")
+            st.rerun()
+        except Exception as e:
+            st.error(f"เกิดข้อผิดพลาด: {str(e)}")
+
+def show_import_data():
+    """แสดงส่วนนำเข้าข้อมูล"""
+    st.subheader("📥 นำเข้าข้อมูล")
+    
+    # โหลดรายการฟอร์ม
+    templates = st.session_state.form_manager.load_templates()
+    
+    if not templates:
+        st.info("ยังไม่มีฟอร์ม กรุณาสร้างฟอร์มใหม่")
+        return
+        
+    # เลือกฟอร์ม
+    selected = st.selectbox(
+        "เลือกฟอร์ม",
+        [t.name for t in templates]
+    )
+    
+    # อัพโหลดไฟล์
+    uploaded_file = st.file_uploader(
+        "อัพโหลดไฟล์ Excel",
+        type=['xlsx', 'xls']
+    )
+    
+    if uploaded_file:
+        try:
+            # อ่านข้อมูล
+            df = pd.read_excel(uploaded_file)
+            st.write("ตัวอย่างข้อมูล:")
+            st.dataframe(df.head())
+            
+            if st.button("นำเข้าข้อมูล"):
+                # บันทึกลงฐานข้อมูล
+                st.session_state.form_manager.save_to_db(selected, df)
+                st.success("นำเข้าข้อมูลสำเร็จ!")
+                
+        except Exception as e:
+            st.error(f"เกิดข้อผิดพลาด: {str(e)}")
+
+def show_view_data():
+    """แสดงส่วนดูข้อมูล"""
+    st.subheader("📊 ดูข้อมูล")
+    
+    # โหลดรายการฟอร์ม
+    templates = st.session_state.form_manager.load_templates()
+    
+    if not templates:
+        st.info("ยังไม่มีฟอร์ม กรุณาสร้างฟอร์มใหม่")
+        return
+        
+    # เลือกฟอร์ม
+    selected = st.selectbox(
+        "เลือกฟอร์ม",
+        [t.name for t in templates]
+    )
+    
+    try:
+        # ดึงข้อมูล
+        df = st.session_state.form_manager.get_from_db(selected)
+        
+        # แสดงข้อมูล
+        st.write("ข้อมูลทั้งหมด:")
+        st.dataframe(df)
+        
+        # ดาวน์โหลด
+        if st.button("ดาวน์โหลด Excel"):
+            df.to_excel("temp_download.xlsx", index=False)
+            with open("temp_download.xlsx", "rb") as f:
+                st.download_button(
+                    "คลิกเพื่อดาวน์โหลด",
+                    f,
+                    file_name=f"{selected}.xlsx"
+                )
+                
+    except Exception as e:
+        st.error(f"เกิดข้อผิดพลาด: {str(e)}")
+
+def main():
+    """ฟังก์ชันหลัก"""
+    st.set_page_config(
+        page_title="Excel Processor",
+        page_icon="📊",
+        layout="wide"
+    )
+    
+    init_session_state()
+    
+    st.title("📊 Excel Processor")
+    
+    # เมนูหลัก
+    menu = ["หน้าหลัก", "จัดการฟอร์ม", "ประมวลผล Excel", "การตั้งค่า"]
+    choice = st.sidebar.selectbox("เมนู", menu)
+    
+    if choice == "หน้าหลัก":
+        st.write("ยินดีต้อนรับสู่ Excel Processor")
+        st.write("เลือกเมนูด้านซ้ายเพื่อเริ่มใช้งาน")
+        
+    elif choice == "จัดการฟอร์ม":
+        show_form_management()
+        
+    elif choice == "ประมวลผล Excel":
+        show_excel_processing()
+        
+    else:
+        show_settings()
+
+if __name__ == "__main__":
+    main() 
