@@ -208,20 +208,30 @@ class ExcelProcessor:
         # สถิติพื้นฐาน
         numeric_stats = {}
         for col in self.df.select_dtypes(include=['int64', 'float64']).columns:
-            numeric_stats[col] = {
-                "count": len(self.df[col]),
-                "mean": float(self.df[col].mean()),
-                "std": float(self.df[col].std()),
-                "min": float(self.df[col].min()),
-                "max": float(self.df[col].max())
-            }
+            data = self.df[col].dropna()  # ลบค่า NaN ก่อนคำนวณ
+            if len(data) > 0:  # ตรวจสอบว่ามีข้อมูลก่อนคำนวณ
+                numeric_stats[col] = {
+                    "count": len(data),
+                    "mean": float(data.mean()),
+                    "std": float(data.std()) if len(data) > 1 else 0,
+                    "min": float(data.min()),
+                    "max": float(data.max())
+                }
+            else:
+                numeric_stats[col] = {
+                    "count": 0,
+                    "mean": 0,
+                    "std": 0,
+                    "min": 0,
+                    "max": 0
+                }
         
         # การจัดกลุ่ม
         groupby_results = {}
         for col in self.df.select_dtypes(include=['object']).columns:
             groupby_results[col] = self.df[col].value_counts().to_dict()
         
-        # แนวโน้มตามเวลา (ถ้ามี)
+        # แนวโน้มตามเวลา
         time_series = {}
         date_columns = self.df.select_dtypes(include=['datetime64']).columns
         for col in date_columns:
