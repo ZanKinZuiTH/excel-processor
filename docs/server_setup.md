@@ -1,245 +1,223 @@
-# 🖥️ คู่มือการตั้งค่าและเชื่อมต่อกับ Data Server
+# 🖥️ คู่มือการติดตั้งเซิร์ฟเวอร์
 
 ## 📋 สารบัญ
 1. [ความต้องการของระบบ](#ความต้องการของระบบ)
-2. [การติดตั้ง Database Server](#การติดตั้ง-database-server)
-3. [การตั้งค่าการเชื่อมต่อ](#การตั้งค่าการเชื่อมต่อ)
-4. [การตั้งค่าระบบ AI](#การตั้งค่าระบบ-ai)
-5. [การสำรองข้อมูล](#การสำรองข้อมูล)
-6. [คำถามที่พบบ่อย](#คำถามที่พบบ่อย)
+2. [การติดตั้งระบบ](#การติดตั้งระบบ)
+3. [การตั้งค่าระบบ](#การตั้งค่าระบบ)
+4. [การทดสอบระบบ](#การทดสอบระบบ)
+5. [การบำรุงรักษา](#การบำรุงรักษา)
 
 ## 💻 ความต้องการของระบบ
 
-### Server Requirements
-- CPU: 4 cores หรือมากกว่า (แนะนำ 8 cores สำหรับระบบ AI)
-- RAM: 8GB หรือมากกว่า (แนะนำ 16GB สำหรับระบบ AI)
-- GPU: NVIDIA GPU with CUDA support (optional, สำหรับเร่งความเร็ว AI)
-- Storage: 100GB หรือมากกว่า
+### ฮาร์ดแวร์ขั้นต่ำ
+- CPU: 4 cores
+- RAM: 8GB
+- Storage: 100GB SSD
+- Network: 100Mbps
+
+### ซอฟต์แวร์ที่จำเป็น
 - OS: Ubuntu 20.04 LTS หรือสูงกว่า
-
-### Software Requirements
-- PostgreSQL 12 หรือสูงกว่า
 - Python 3.8 หรือสูงกว่า
-- CUDA Toolkit 11.0+ (ถ้าใช้ GPU)
-- nginx (สำหรับ Production)
+- PostgreSQL 12 หรือสูงกว่า
+- Redis 6 หรือสูงกว่า
+- NGINX
 
-## 🛠️ การติดตั้ง Database Server
+## 🚀 การติดตั้งระบบ
 
-### 1. ติดตั้ง PostgreSQL
+### 1. ติดตั้ง Dependencies
 ```bash
 # อัพเดทระบบ
 sudo apt update
 sudo apt upgrade -y
 
-# ติดตั้ง PostgreSQL
-sudo apt install postgresql postgresql-contrib -y
+# ติดตั้ง Python และเครื่องมือที่จำเป็น
+sudo apt install python3.8 python3.8-venv python3-pip
 
-# ตรวจสอบสถานะ
-sudo systemctl status postgresql
+# ติดตั้ง PostgreSQL
+sudo apt install postgresql postgresql-contrib
+
+# ติดตั้ง Redis
+sudo apt install redis-server
+
+# ติดตั้ง NGINX
+sudo apt install nginx
 ```
 
 ### 2. ตั้งค่าฐานข้อมูล
 ```bash
-# เข้าสู่ PostgreSQL
+# สร้างฐานข้อมูลและผู้ใช้
 sudo -u postgres psql
-
-# สร้างฐานข้อมูล
-CREATE DATABASE excel_processor;
-
-# สร้างผู้ใช้
-CREATE USER myuser WITH PASSWORD 'mypassword';
-
-# ให้สิทธิ์
-GRANT ALL PRIVILEGES ON DATABASE excel_processor TO myuser;
-
-# ออกจาก PostgreSQL
+CREATE DATABASE exceldb;
+CREATE USER exceluser WITH PASSWORD 'your_password';
+GRANT ALL PRIVILEGES ON DATABASE exceldb TO exceluser;
 \q
 ```
 
-### 3. เปิด Remote Access (ถ้าต้องการ)
+### 3. ติดตั้งแอปพลิเคชัน
 ```bash
-# แก้ไขไฟล์ postgresql.conf
-sudo nano /etc/postgresql/12/main/postgresql.conf
-# แก้ไขบรรทัด:
-# listen_addresses = '*'
+# Clone repository
+git clone https://github.com/yourusername/excel-processor.git
+cd excel-processor
 
-# แก้ไขไฟล์ pg_hba.conf
-sudo nano /etc/postgresql/12/main/pg_hba.conf
-# เพิ่มบรรทัด:
-# host    all             all             0.0.0.0/0               md5
+# สร้าง virtual environment
+python3 -m venv venv
+source venv/bin/activate
 
-# รีสตาร์ท PostgreSQL
-sudo systemctl restart postgresql
+# ติดตั้ง dependencies
+pip install -r requirements.txt
 ```
 
-## ⚙️ การตั้งค่าการเชื่อมต่อ
+## ⚙️ การตั้งค่าระบบ
 
-### 1. ตั้งค่าในไฟล์ .env
+### 1. ตั้งค่าสภาพแวดล้อม
 ```bash
 # สร้างไฟล์ .env
-cp .env.example .env
-
-# แก้ไขการตั้งค่า
+cat > .env << EOL
 DB_HOST=localhost
 DB_PORT=5432
-DB_NAME=excel_processor
-DB_USER=myuser
-DB_PASSWORD=mypassword
+DB_NAME=exceldb
+DB_USER=exceluser
+DB_PASSWORD=your_password
+REDIS_HOST=localhost
+REDIS_PORT=6379
+SECRET_KEY=your_secret_key
+EOL
 ```
 
-### 2. รูปแบบ Connection String
-```python
-# PostgreSQL
-postgresql://myuser:mypassword@localhost:5432/excel_processor
+### 2. ตั้งค่า NGINX
+```nginx
+server {
+    listen 80;
+    server_name your_domain.com;
 
-# MySQL
-mysql://myuser:mypassword@localhost:3306/excel_processor
+    location / {
+        proxy_pass http://localhost:8000;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+    }
 
-# SQLite
-sqlite:///path/to/database.db
-```
-
-### 3. ตัวอย่างการเชื่อมต่อ
-```python
-from excel_processor.form_manager import FormManager
-
-# สร้าง FormManager
-manager = FormManager(
-    storage_path='templates',
-    db_url='postgresql://myuser:mypassword@localhost:5432/excel_processor'
-)
-
-# เรียนรู้รูปแบบจาก Excel
-template = manager.learn_from_excel(
-    'sample.xlsx',
-    'sales_report',
-    'แบบฟอร์มรายงานยอดขาย'
-)
-
-# บันทึกข้อมูลลงฐานข้อมูล
-df = pd.read_excel('data.xlsx')
-manager.save_to_db('sales_report', df)
-
-# ดึงข้อมูลจากฐานข้อมูล
-data = manager.get_from_db('sales_report')
-```
-
-## 🤖 การตั้งค่าระบบ AI
-
-### 1. ติดตั้ง Dependencies
-```bash
-# ติดตั้ง TensorFlow และ Dependencies
-pip install tensorflow
-pip install opencv-python
-pip install scikit-learn
-
-# ถ้าใช้ GPU ให้ติดตั้ง CUDA
-# 1. ติดตั้ง NVIDIA Driver
-sudo ubuntu-drivers autoinstall
-
-# 2. ติดตั้ง CUDA Toolkit
-wget https://developer.download.nvidia.com/compute/cuda/11.0.3/local_installers/cuda_11.0.3_450.51.06_linux.run
-sudo sh cuda_11.0.3_450.51.06_linux.run
-```
-
-### 2. ตั้งค่าโมเดล AI
-```bash
-# สร้างโฟลเดอร์สำหรับเก็บโมเดล
-mkdir -p models/document_classifier
-mkdir -p models/field_analyzer
-
-# ตั้งค่าในไฟล์ config/ai_config.json
-{
-    "model_path": "models/",
-    "use_gpu": true,
-    "batch_size": 32,
-    "learning_rate": 0.001,
-    "document_types": [
-        "invoice",
-        "receipt",
-        "report"
-    ]
+    location /static/ {
+        alias /path/to/your/static/;
+    }
 }
 ```
 
-### 3. เทรนโมเดล
+### 3. ตั้งค่า Systemd Service
 ```bash
-# เทรนโมเดลด้วยข้อมูลตัวอย่าง
-python cli.py ai train --samples data/samples --epochs 10
+# สร้าง service file
+sudo nano /etc/systemd/system/excel-processor.service
 
-# ทดสอบโมเดล
-python cli.py ai test --samples data/test
+[Unit]
+Description=Excel Processor Service
+After=network.target
+
+[Service]
+User=ubuntu
+WorkingDirectory=/path/to/excel-processor
+Environment="PATH=/path/to/excel-processor/venv/bin"
+ExecStart=/path/to/excel-processor/venv/bin/uvicorn main:app --host 0.0.0.0 --port 8000
+
+[Install]
+WantedBy=multi-user.target
 ```
 
-### 4. การ Monitor ระบบ AI
+## 🧪 การทดสอบระบบ
+
+### 1. ทดสอบการเชื่อมต่อ
 ```bash
-# ติดตั้ง TensorBoard
-pip install tensorboard
+# ทดสอบ PostgreSQL
+psql -h localhost -U exceluser -d exceldb
 
-# รัน TensorBoard
-tensorboard --logdir logs/training
+# ทดสอบ Redis
+redis-cli ping
 
-# เปิดบราวเซอร์ไปที่ http://localhost:6006
+# ทดสอบ API
+curl http://localhost:8000/health
 ```
 
-## 💾 การสำรองข้อมูล
-
-### 1. Backup Database
+### 2. ทดสอบการทำงาน
 ```bash
-# Backup
-pg_dump -U myuser -d excel_processor > backup.sql
+# รัน unit tests
+python -m pytest tests/
 
-# Restore
-psql -U myuser -d excel_processor < backup.sql
+# ทดสอบ load testing
+locust -f tests/locustfile.py
 ```
 
-### 2. Backup Templates
-```bash
-# Backup
-tar -czf templates_backup.tar.gz templates/
+## 🔧 การบำรุงรักษา
 
-# Restore
-tar -xzf templates_backup.tar.gz
+### การสำรองข้อมูล
+```bash
+# สำรองฐานข้อมูล
+pg_dump -U exceluser exceldb > backup.sql
+
+# สำรอง Redis
+redis-cli save
 ```
 
-## ❓ คำถามที่พบบ่อย
+### การอัพเดทระบบ
+```bash
+# อัพเดทโค้ด
+git pull origin main
 
-### Q: ควรเลือกใช้ Database ชนิดใด?
-A: แนะนำให้ใช้:
-- **PostgreSQL**: สำหรับระบบขนาดใหญ่ ต้องการความเสถียรและฟีเจอร์ขั้นสูง
-- **MySQL**: สำหรับระบบขนาดกลาง ใช้งานง่าย
-- **SQLite**: สำหรับระบบขนาดเล็ก ไม่ต้องติดตั้ง Server เพิ่ม
+# อัพเดท dependencies
+pip install -r requirements.txt --upgrade
 
-### Q: จะป้องกันการเข้าถึงฐานข้อมูลอย่างไร?
-A: 
-1. ใช้ไฟร์วอลล์จำกัดการเข้าถึง
-2. ตั้งรหัสผ่านที่ซับซ้อน
-3. อัพเดท PostgreSQL เป็นเวอร์ชันล่าสุด
-4. เปิดใช้ SSL สำหรับการเชื่อมต่อ
+# รีสตาร์ทบริการ
+sudo systemctl restart excel-processor
+```
 
-### Q: ระบบรองรับการทำงานพร้อมกันหลายคนหรือไม่?
-A: รองรับ โดย:
-1. PostgreSQL จัดการ Concurrent Access ได้
-2. มีระบบ Lock Table ป้องกันการแก้ไขพร้อมกัน
-3. สามารถกำหนดสิทธิ์ผู้ใช้แยกกันได้
+### การตรวจสอบ Log
+```bash
+# ดู application logs
+tail -f logs/app.log
 
-### Q: หากต้องการย้าย Server ต้องทำอย่างไร?
-A:
-1. Backup ข้อมูลทั้งหมด
-2. ติดตั้ง PostgreSQL บน Server ใหม่
-3. Restore ข้อมูล
-4. อัพเดทการตั้งค่าการเชื่อมต่อ 
+# ดู NGINX logs
+tail -f /var/log/nginx/access.log
+```
 
-### Q: ระบบ AI ต้องการทรัพยากรเท่าไร?
-A: ขึ้นอยู่กับการใช้งาน:
-- **CPU Only**: แนะนำ 8 cores, RAM 16GB
-- **With GPU**: NVIDIA GPU 6GB VRAM ขึ้นไป
-- **Storage**: 50GB สำหรับโมเดลและ Log
-- **Network**: Bandwidth 100Mbps ขึ้นไป
+## 🚨 การแก้ไขปัญหา
 
-### Q: จะเพิ่มประสิทธิภาพระบบ AI อย่างไร?
-A:
-1. ใช้ GPU สำหรับการประมวลผล
-2. ปรับแต่ง Batch Size ให้เหมาะสม
-3. ใช้ Data Augmentation เพิ่มข้อมูลเทรน
-4. ทำ Model Optimization 
+### ปัญหาทั่วไป
+1. **ไม่สามารถเชื่อมต่อฐานข้อมูล**
+   - ตรวจสอบ PostgreSQL service
+   - ตรวจสอบ credentials
+   - ตรวจสอบ firewall
+
+2. **ระบบทำงานช้า**
+   - ตรวจสอบการใช้ RAM
+   - ตรวจสอบ CPU usage
+   - ตรวจสอบ disk I/O
+
+3. **Error 500**
+   - ตรวจสอบ application logs
+   - ตรวจสอบ memory usage
+   - รีสตาร์ทบริการ
+
+### คำสั่งที่ใช้บ่อย
+```bash
+# ตรวจสอบสถานะบริการ
+sudo systemctl status excel-processor
+
+# ดูการใช้ทรัพยากร
+htop
+
+# ตรวจสอบพื้นที่ดิสก์
+df -h
+
+# ล้าง cache
+redis-cli flushall
+```
+
+## 📞 การติดต่อสนับสนุน
+
+### ช่องทางติดต่อ
+- Email: support@example.com
+- โทร: 02-xxx-xxxx
+- Line: @excelprocessor
+- Discord: discord.gg/excelprocessor
+
+### เอกสารอ้างอิง
+- [Official Documentation](https://docs.example.com)
+- [API Reference](https://api.example.com)
+- [GitHub Repository](https://github.com/yourusername/excel-processor)
