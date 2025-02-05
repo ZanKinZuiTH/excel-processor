@@ -24,6 +24,7 @@ from template_manager import TemplateManager
 from datetime import datetime
 import re
 from colorama import init, Fore, Style
+from ai_model_manager import AIModelManager
 
 # เริ่มต้นใช้งาน colorama สำหรับแสดงสีในเทอร์มินอล
 init()
@@ -371,6 +372,75 @@ def demo_print(template_id, entry_id):
     )
     print_success(f"ส่งเอกสารไปยังเครื่องพิมพ์ '{printer}' สำเร็จ")
 
+def demo_ai_analysis():
+    """สาธิตการใช้งานระบบ AI สำหรับวิเคราะห์เอกสาร"""
+    print_header("การวิเคราะห์เอกสารด้วย AI")
+    
+    # สร้าง AI Model Manager
+    ai_model = AIModelManager()
+    
+    # ตัวอย่างการวิเคราะห์เอกสารใหม่
+    sample_file = "ตัวอย่างเอกสาร.xlsx"
+    print(f"\n{Fore.CYAN}กำลังวิเคราะห์ไฟล์: {sample_file}{Style.RESET_ALL}")
+    
+    # วิเคราะห์โครงสร้างเอกสารด้วย CNN
+    structure = ai_model.analyze_structure(sample_file)
+    print(f"\n{Fore.YELLOW}ผลการวิเคราะห์โครงสร้าง:{Style.RESET_ALL}")
+    for section, confidence in structure.items():
+        print(f"  • {section}: {confidence*100:.1f}%")
+    
+    # วิเคราะห์เนื้อหาด้วย CNN+LSTM
+    content = ai_model.analyze_content(sample_file)
+    print(f"\n{Fore.YELLOW}ผลการวิเคราะห์เนื้อหา:{Style.RESET_ALL}")
+    for field, prediction in content.items():
+        print(f"  • {field}:")
+        print(f"    - ค่าที่พบ: {prediction['value']}")
+        print(f"    - ความมั่นใจ: {prediction['confidence']*100:.1f}%")
+    
+    # สร้างเทมเพลตอัตโนมัติ
+    template = ai_model.create_template(sample_file)
+    print(f"\n{Fore.GREEN}✓ สร้างเทมเพลตอัตโนมัติสำเร็จ{Style.RESET_ALL}")
+    print(f"  • Template ID: {template['id']}")
+    print(f"  • จำนวนฟิลด์ที่พบ: {len(template['fields'])}")
+    
+    return template['id']
+
+def demo_ai_training():
+    """สาธิตการฝึกฝนระบบ AI ด้วยข้อมูลใหม่"""
+    print_header("การฝึกฝนระบบ AI")
+    
+    # สร้าง AI Model Manager
+    ai_model = AIModelManager()
+    
+    # ข้อมูลสำหรับฝึกฝน
+    training_files = [
+        "ตัวอย่าง1.xlsx",
+        "ตัวอย่าง2.xlsx",
+        "ตัวอย่าง3.xlsx"
+    ]
+    
+    print(f"\n{Fore.CYAN}เริ่มการฝึกฝนด้วยไฟล์:{Style.RESET_ALL}")
+    for file in training_files:
+        print(f"  • {file}")
+    
+    # เริ่มการฝึกฝน
+    training_result = ai_model.train(
+        files=training_files,
+        epochs=10,
+        batch_size=32
+    )
+    
+    print(f"\n{Fore.YELLOW}ผลการฝึกฝน:{Style.RESET_ALL}")
+    print(f"  • ความแม่นยำ: {training_result['accuracy']*100:.1f}%")
+    print(f"  • ค่าความสูญเสีย: {training_result['loss']:.4f}")
+    
+    # บันทึกโมเดล
+    model_id = ai_model.save_model()
+    print(f"\n{Fore.GREEN}✓ บันทึกโมเดลสำเร็จ{Style.RESET_ALL}")
+    print(f"  • Model ID: {model_id}")
+    
+    return model_id
+
 def main():
     """ฟังก์ชันหลักสำหรับการสาธิต
     
@@ -381,6 +451,7 @@ def main():
     """
     print_header("สาธิตการใช้งานระบบจัดการเทมเพลต Excel")
     
+    # สาธิตการใช้งานพื้นฐาน
     template_id, all_sheet_data = demo_template_upload()
     if not template_id:
         return
@@ -391,6 +462,11 @@ def main():
     
     demo_preview(template_id, entry_id)
     demo_print(template_id, entry_id)
+    
+    # สาธิตการใช้งานระบบ AI
+    print("\nเริ่มการสาธิตระบบ AI...")
+    ai_template_id = demo_ai_analysis()
+    model_id = demo_ai_training()
     
     print_header("จบการสาธิต")
 
