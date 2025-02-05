@@ -60,4 +60,13 @@ typer>=0.9.0          # สร้าง CLI แบบง่าย
 
 # Networking - การเชื่อมต่อเครือข่าย
 requests>=2.26.0      # HTTP Client แบบปกติ
-httpx>=0.23.0         # HTTP Client แบบ Async 
+httpx>=0.23.0         # HTTP Client แบบ Async
+
+# Version Control - ระบบควบคุมเวอร์ชัน
+python-diff-match-patch>=20200713  # เปรียบเทียบความแตกต่างของข้อความ
+deepdiff>=5.8.1                   # เปรียบเทียบความแตกต่างของโครงสร้างข้อมูล
+
+# Template Management - ระบบจัดการเทมเพลต
+Levenshtein>=0.20.9              # คำนวณความคล้ายคลึงของข้อความ
+fuzzywuzzy>=0.18.0               # ค้นหาข้อความคล้ายคลึง
+python-Levenshtein>=0.12.2       # เพิ่มประสิทธิภาพการค้นหา 
