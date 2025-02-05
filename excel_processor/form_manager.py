@@ -15,6 +15,9 @@ import numpy as np
 from tensorflow.keras import layers, Model
 from sklearn.preprocessing import LabelEncoder
 import cv2
+import win32com.client
+from pdf2image import convert_from_path
+import tempfile
 
 logger = logging.getLogger(__name__)
 
@@ -141,8 +144,27 @@ class DeepFormAnalyzer:
         
     def _convert_excel_to_image(self, excel_file: str):
         """แปลงไฟล์ Excel เป็นภาพ"""
-        # TODO: ใช้ library เช่น pdf2image หรือ win32com สำหรับการแปลงไฟล์
-        # สำหรับตัวอย่างนี้ สร้างภาพจำลอง
+        try:
+            # สร้างไฟล์ PDF ชั่วคราว
+            excel = win32com.client.Dispatch("Excel.Application")
+            wb = excel.Workbooks.Open(os.path.abspath(excel_file))
+            pdf_path = os.path.join(tempfile.gettempdir(), "temp_excel.pdf")
+            wb.ExportAsFixedFormat(0, pdf_path)
+            wb.Close()
+            excel.Quit()
+            
+            # แปลง PDF เป็นภาพ
+            images = convert_from_path(pdf_path)
+            if images:
+                # แปลงภาพแรกเป็น numpy array
+                image = np.array(images[0])
+                # ลบไฟล์ชั่วคราว
+                os.remove(pdf_path)
+                return image
+        except Exception as e:
+            logger.error(f"ไม่สามารถแปลงไฟล์เป็นภาพได้: {str(e)}")
+        
+        # กรณีมีข้อผิดพลาด ส่งคืนภาพว่าง
         return np.zeros((224, 224, 3))
         
     def _visualize_field_data(self, series):
@@ -197,196 +219,87 @@ class AIFormLearner:
     """คลาสสำหรับการเรียนรู้รูปแบบเอกสารด้วย AI"""
     
     def __init__(self):
-        self.model = None
-        self.layout_patterns = {}
-        self.field_patterns = {}
-        self.deep_analyzer = DeepFormAnalyzer()
+        self.model = self._build_model()
+        self.label_encoder = LabelEncoder()
+        self.trained = False
         
-    def learn_layout(self, excel_file: str):
-        """เรียนรู้รูปแบบการจัดวางของเอกสาร"""
-        df = pd.read_excel(excel_file)
+    def _build_model(self):
+        """สร้างโมเดลสำหรับการเรียนรู้รูปแบบเอกสาร"""
+        inputs = layers.Input(shape=(None, None, 3))
         
-        # วิเคราะห์การจัดวางคอลัมน์
-        layout = {
-            'columns': list(df.columns),
-            'merged_cells': self._detect_merged_cells(df),
-            'header_style': self._analyze_header_style(df),
-            'data_patterns': self._analyze_data_patterns(df)
-        }
+        # CNN สำหรับการเรียนรู้รูปแบบ
+        x = layers.Conv2D(32, 3, activation='relu')(inputs)
+        x = layers.MaxPooling2D()(x)
+        x = layers.Conv2D(64, 3, activation='relu')(x)
+        x = layers.MaxPooling2D()(x)
+        x = layers.Conv2D(128, 3, activation='relu')(x)
+        x = layers.GlobalAveragePooling2D()(x)
         
-        # เพิ่มการวิเคราะห์ด้วย Deep Learning
-        doc_structure = self.deep_analyzer.analyze_document_structure(excel_file)
-        field_analysis = self.deep_analyzer.analyze_fields(excel_file)
+        # ส่วนการจำแนกประเภทเอกสาร
+        x = layers.Dense(256, activation='relu')(x)
+        x = layers.Dropout(0.5)(x)
+        outputs = layers.Dense(10, activation='softmax')(x)
         
-        layout.update({
-            'document_type': doc_structure,
-            'field_analysis': field_analysis
-        })
-        
-        self.layout_patterns[excel_file] = layout
-        return layout
-        
-    def _detect_merged_cells(self, df):
-        """ตรวจจับเซลล์ที่ถูกรวม"""
-        merged_cells = []
-        try:
-            if hasattr(df, 'sheet'):
-                for range_ in df.sheet.merged_cells.ranges:
-                    merged_cells.append({
-                        'start_row': range_.min_row,
-                        'end_row': range_.max_row,
-                        'start_col': range_.min_col,
-                        'end_col': range_.max_col
-                    })
-        except:
-            pass
-        return merged_cells
-        
-    def _analyze_header_style(self, df):
-        """วิเคราะห์รูปแบบส่วนหัว"""
-        header_style = {
-            'font': None,
-            'alignment': None,
-            'border': None,
-            'fill': None
-        }
-        
-        try:
-            if hasattr(df, 'sheet'):
-                header_row = df.sheet[1]
-                cell = header_row[0]
-                header_style.update({
-                    'font': {
-                        'name': cell.font.name,
-                        'size': cell.font.size,
-                        'bold': cell.font.bold,
-                        'italic': cell.font.italic
-                    },
-                    'alignment': {
-                        'horizontal': cell.alignment.horizontal,
-                        'vertical': cell.alignment.vertical
-                    },
-                    'border': {
-                        'top': bool(cell.border.top.style),
-                        'bottom': bool(cell.border.bottom.style),
-                        'left': bool(cell.border.left.style),
-                        'right': bool(cell.border.right.style)
-                    }
-                })
-        except:
-            pass
-        return header_style
-        
-    def _analyze_data_patterns(self, df):
-        """วิเคราะห์รูปแบบข้อมูล"""
-        patterns = {}
-        
-        for col in df.columns:
-            col_data = df[col].dropna()
-            if len(col_data) == 0:
-                continue
-                
-            patterns[col] = {
-                'type': str(col_data.dtype),
-                'unique_values': col_data.nunique(),
-                'sample_values': col_data.head().tolist(),
-                'format_pattern': self._detect_format_pattern(col_data)
-            }
-            
-        return patterns
-        
-    def _detect_format_pattern(self, series):
-        """ตรวจจับรูปแบบการจัดรูปแบบข้อมูล"""
-        if pd.api.types.is_numeric_dtype(series):
-            return {
-                'type': 'numeric',
-                'decimals': self._count_decimals(series),
-                'has_thousand_sep': self._has_thousand_separator(series)
-            }
-        elif pd.api.types.is_datetime64_any_dtype(series):
-            return {
-                'type': 'datetime',
-                'format': self._detect_date_format(series)
-            }
-        else:
-            return {
-                'type': 'text',
-                'avg_length': series.str.len().mean(),
-                'max_length': series.str.len().max()
-            }
-            
-    def _count_decimals(self, series):
-        """นับจำนวนทศนิยม"""
-        try:
-            return max(str(x)[::-1].find('.') for x in series if '.' in str(x))
-        except:
-            return 0
-            
-    def _has_thousand_separator(self, series):
-        """ตรวจสอบตัวคั่นหลักพัน"""
-        try:
-            return any(',' in str(x) for x in series)
-        except:
-            return False
-            
-    def _detect_date_format(self, series):
-        """ตรวจจับรูปแบบวันที่"""
-        common_formats = [
-            '%Y-%m-%d',
-            '%d/%m/%Y',
-            '%m/%d/%Y',
-            '%d-%m-%Y',
-            '%Y/%m/%d'
-        ]
-        
-        for fmt in common_formats:
-            try:
-                pd.to_datetime(series.iloc[0], format=fmt)
-                return fmt
-            except:
-                continue
-        return None
-        
-    def suggest_template(self, excel_file: str) -> FormTemplate:
-        """แนะนำ Template ที่เหมาะสม"""
-        layout = self.learn_layout(excel_file)
-        
-        # สร้าง Template ใหม่
-        template = FormTemplate(
-            name=f"template_{datetime.now().strftime('%Y%m%d_%H%M%S')}",
-            description=f"Template ที่สร้างโดย AI (ประเภทเอกสาร: {layout['document_type']['document_type']})"
+        model = Model(inputs=inputs, outputs=outputs)
+        model.compile(
+            optimizer='adam',
+            loss='categorical_crossentropy',
+            metrics=['accuracy']
         )
+        return model
         
-        # เพิ่มคอลัมน์และกฎการตรวจสอบ
-        for col, field_info in layout['field_analysis'].items():
-            template.add_column(
-                name=col,
-                data_type=field_info['type'],
-                required=field_info['pattern']['null_ratio'] < 0.1
-            )
+    def train(self, excel_files: List[str], labels: List[str], epochs: int = 10):
+        """เทรนโมเดลด้วยข้อมูลตัวอย่าง"""
+        # เตรียมข้อมูล
+        images = []
+        for file in excel_files:
+            image = self._convert_excel_to_image(file)
+            image = cv2.resize(image, (224, 224))
+            image = image / 255.0
+            images.append(image)
             
-            # สร้างกฎการตรวจสอบตามรูปแบบข้อมูล
-            validation_rule = {
-                'type': field_info['type'],
-                'confidence': field_info['confidence']
-            }
+        # แปลง labels
+        self.label_encoder.fit(labels)
+        y = self.label_encoder.transform(labels)
+        y = tf.keras.utils.to_categorical(y)
+        
+        # เทรนโมเดล
+        self.model.fit(
+            np.array(images),
+            y,
+            epochs=epochs,
+            validation_split=0.2
+        )
+        self.trained = True
+        
+    def predict(self, excel_file: str) -> Dict:
+        """ทำนายรูปแบบของเอกสาร"""
+        if not self.trained:
+            raise ValueError("โมเดลยังไม่ได้รับการเทรน")
             
-            if field_info['pattern'].get('distribution'):
-                validation_rule.update({
-                    'mean': field_info['pattern']['mean'],
-                    'std': field_info['pattern']['std'],
-                    'distribution': field_info['pattern']['distribution']
-                })
-            elif field_info['pattern'].get('avg_length'):
-                validation_rule.update({
-                    'max_length': int(field_info['pattern']['avg_length'] * 1.5),
-                    'contains_numbers': field_info['pattern']['contains_numbers'],
-                    'contains_special': field_info['pattern']['contains_special']
-                })
-                
-            template.set_validation_rule(col, validation_rule)
-            
-        return template
+        # แปลงไฟล์เป็นภาพ
+        image = self._convert_excel_to_image(excel_file)
+        image = cv2.resize(image, (224, 224))
+        image = image / 255.0
+        
+        # ทำนาย
+        pred = self.model.predict(np.expand_dims(image, axis=0))
+        doc_type = self.label_encoder.inverse_transform(np.argmax(pred, axis=1))[0]
+        confidence = float(np.max(pred))
+        
+        return {
+            'document_type': doc_type,
+            'confidence': confidence
+        }
+        
+    def save_model(self, path: str):
+        """บันทึกโมเดล"""
+        self.model.save(path)
+        
+    def load_model(self, path: str):
+        """โหลดโมเดล"""
+        self.model = tf.keras.models.load_model(path)
+        self.trained = True
 
 class FormManager:
     """คลาสสำหรับจัดการฟอร์มทั้งหมด"""
