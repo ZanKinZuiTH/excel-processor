@@ -19,12 +19,62 @@
 """
 
 import os
-from typing import Dict, Any, Optional
-from pydantic import BaseSettings, validator
+from typing import Dict, Any, Optional, List
+from pydantic import BaseSettings, validator, DirectoryPath
+from pathlib import Path
 from dotenv import load_dotenv
+import json
 
 # โหลดค่าจาก .env
 load_dotenv()
+
+class AISettings(BaseSettings):
+    """
+    การตั้งค่าสำหรับระบบ AI
+    
+    สำหรับนักศึกษา:
+    1. ศึกษาการตั้งค่าโมเดล AI
+    2. ปรับแต่งพารามิเตอร์
+    3. เพิ่มการตรวจสอบค่า
+    """
+    MODEL_PATH: str = "./models/latest"
+    CONFIDENCE_THRESHOLD: float = 0.8
+    USE_GPU: bool = True
+    BATCH_SIZE: int = 32
+    MAX_EPOCHS: int = 100
+    LEARNING_RATE: float = 0.001
+    
+    @validator('CONFIDENCE_THRESHOLD')
+    def validate_confidence(cls, v):
+        if not 0 <= v <= 1:
+            raise ValueError('ค่าความเชื่อมั่นต้องอยู่ระหว่าง 0 และ 1')
+        return v
+
+class NotificationSettings(BaseSettings):
+    """
+    การตั้งค่าการแจ้งเตือน
+    
+    สำหรับนักศึกษา:
+    1. ศึกษาการตั้งค่าการแจ้งเตือน
+    2. เพิ่มช่องทางการแจ้งเตือน
+    3. ปรับแต่งรูปแบบข้อความ
+    """
+    ENABLE_EMAIL: bool = False
+    EMAIL_FROM: Optional[str] = None
+    EMAIL_TO: Optional[List[str]] = None
+    SMTP_HOST: Optional[str] = None
+    SMTP_PORT: Optional[int] = None
+    SMTP_USER: Optional[str] = None
+    SMTP_PASSWORD: Optional[str] = None
+    
+    ENABLE_LINE: bool = False
+    LINE_TOKEN: Optional[str] = None
+    
+    @validator('EMAIL_TO', pre=True)
+    def validate_email_list(cls, v):
+        if isinstance(v, str):
+            return v.split(',')
+        return v
 
 class Settings(BaseSettings):
     """
@@ -40,85 +90,113 @@ class Settings(BaseSettings):
     APP_NAME: str = "ระบบจัดการเทมเพลต Excel"
     APP_VERSION: str = "1.0.0"
     DEBUG: bool = False
+    LANGUAGE: str = "th"
     
     # ตั้งค่าความปลอดภัย
-    SECRET_KEY: str
+    SECRET_KEY: str = os.getenv("SECRET_KEY", "your-secret-key")
     ALGORITHM: str = "HS256"
     ACCESS_TOKEN_EXPIRE_MINUTES: int = 30
     
     # ตั้งค่าฐานข้อมูล
     DATABASE_URL: str = os.getenv("DATABASE_URL", "sqlite:///./excel_data.db")
     
-    # ตั้งค่าไฟล์
-    UPLOAD_DIR: str = "uploads"
-    TEMPLATE_DIR: str = "templates"
-    PREVIEW_DIR: str = "previews"
-    MAX_FILE_SIZE: int = 10 * 1024 * 1024  # 10MB
-    ALLOWED_EXTENSIONS: set = {'.xlsx', '.xls'}
+    # ตั้งค่าพาธ
+    STORAGE_PATH: DirectoryPath = Path("./data")
+    TEMPLATE_PATH: DirectoryPath = Path("./templates")
+    PREVIEW_PATH: DirectoryPath = Path("./previews")
     
-    # ตั้งค่า logging
-    LOG_LEVEL: str = "INFO"
-    LOG_FORMAT: str = "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
-    LOG_FILE: Optional[str] = "app.log"
+    # ตั้งค่าการสำรองข้อมูล
+    ENABLE_BACKUP: bool = True
+    BACKUP_INTERVAL: str = "daily"  # daily, weekly, monthly
+    BACKUP_PATH: DirectoryPath = Path("./backups")
     
-    @validator("SECRET_KEY")
-    def validate_secret_key(cls, v):
-        """
-        ตรวจสอบค่า SECRET_KEY
-        
-        Tips สำหรับนักศึกษา:
-        - ตรวจสอบความยาวขั้นต่ำ
-        - ตรวจสอบความซับซ้อน
-        - เพิ่มการสร้างค่าอัตโนมัติ
-        """
-        if not v:
-            raise ValueError("SECRET_KEY ต้องไม่ว่าง")
-        if len(v) < 32:
-            raise ValueError("SECRET_KEY ต้องมีความยาวอย่างน้อย 32 ตัวอักษร")
+    # ตั้งค่า AI
+    ai: AISettings = AISettings()
+    
+    # ตั้งค่าการแจ้งเตือน
+    notification: NotificationSettings = NotificationSettings()
+    
+    @validator('LANGUAGE')
+    def validate_language(cls, v):
+        if v not in ['th', 'en']:
+            raise ValueError('รองรับเฉพาะภาษาไทยและอังกฤษ')
         return v
     
-    @validator("DATABASE_URL")
-    def validate_database_url(cls, v):
-        """
-        ตรวจสอบค่า DATABASE_URL
-        
-        Tips สำหรับนักศึกษา:
-        - ตรวจสอบรูปแบบ URL
-        - ตรวจสอบการเชื่อมต่อ
-        - เพิ่มการเข้ารหัส credentials
-        """
-        if not v:
-            raise ValueError("DATABASE_URL ต้องไม่ว่าง")
-        if not v.startswith(("sqlite:///", "postgresql://", "mysql://")):
-            raise ValueError("DATABASE_URL ต้องเป็น URL ที่ถูกต้อง")
+    @validator('BACKUP_INTERVAL')
+    def validate_backup_interval(cls, v):
+        if v not in ['daily', 'weekly', 'monthly']:
+            raise ValueError('รองรับเฉพาะการสำรองข้อมูลรายวัน รายสัปดาห์ และรายเดือน')
         return v
     
-    @validator("LOG_LEVEL")
-    def validate_log_level(cls, v):
-        """
-        ตรวจสอบค่า LOG_LEVEL
+    def save_to_json(self, path: str = "config.json"):
+        """บันทึกการตั้งค่าลงในไฟล์ JSON"""
+        config_dict = {
+            "app": {
+                "name": self.APP_NAME,
+                "version": self.APP_VERSION,
+                "debug": self.DEBUG,
+                "language": self.LANGUAGE
+            },
+            "security": {
+                "algorithm": self.ALGORITHM,
+                "token_expire_minutes": self.ACCESS_TOKEN_EXPIRE_MINUTES
+            },
+            "paths": {
+                "storage": str(self.STORAGE_PATH),
+                "template": str(self.TEMPLATE_PATH),
+                "preview": str(self.PREVIEW_PATH),
+                "backup": str(self.BACKUP_PATH)
+            },
+            "backup": {
+                "enabled": self.ENABLE_BACKUP,
+                "interval": self.BACKUP_INTERVAL
+            },
+            "ai": {
+                "model_path": self.ai.MODEL_PATH,
+                "confidence_threshold": self.ai.CONFIDENCE_THRESHOLD,
+                "use_gpu": self.ai.USE_GPU,
+                "batch_size": self.ai.BATCH_SIZE,
+                "max_epochs": self.ai.MAX_EPOCHS,
+                "learning_rate": self.ai.LEARNING_RATE
+            },
+            "notification": {
+                "email": {
+                    "enabled": self.notification.ENABLE_EMAIL,
+                    "from": self.notification.EMAIL_FROM,
+                    "to": self.notification.EMAIL_TO,
+                    "smtp": {
+                        "host": self.notification.SMTP_HOST,
+                        "port": self.notification.SMTP_PORT,
+                        "user": self.notification.SMTP_USER
+                    }
+                },
+                "line": {
+                    "enabled": self.notification.ENABLE_LINE,
+                    "token": self.notification.LINE_TOKEN
+                }
+            }
+        }
         
-        Tips สำหรับนักศึกษา:
-        - ตรวจสอบค่าที่อนุญาต
-        - เพิ่มระดับการบันทึกล็อก
-        - ปรับแต่งรูปแบบการบันทึก
-        """
-        allowed_levels = {"DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL"}
-        if v.upper() not in allowed_levels:
-            raise ValueError(f"LOG_LEVEL ต้องเป็นหนึ่งใน {allowed_levels}")
-        return v.upper()
+        with open(path, 'w', encoding='utf-8') as f:
+            json.dump(config_dict, f, ensure_ascii=False, indent=2)
     
-    class Config:
-        """
-        การตั้งค่าเพิ่มเติมสำหรับ Pydantic
+    @classmethod
+    def load_from_json(cls, path: str = "config.json") -> 'Settings':
+        """โหลดการตั้งค่าจากไฟล์ JSON"""
+        if not os.path.exists(path):
+            return cls()
         
-        Tips สำหรับนักศึกษา:
-        - ศึกษาการใช้ env_file
-        - เพิ่มการแปลงค่าอัตโนมัติ
-        - กำหนดค่าเริ่มต้นที่ปลอดภัย
-        """
-        env_file = ".env"
-        case_sensitive = True
+        with open(path, 'r', encoding='utf-8') as f:
+            config_dict = json.load(f)
+        
+        # สร้าง environment variables จาก config
+        os.environ['APP_NAME'] = config_dict['app']['name']
+        os.environ['APP_VERSION'] = config_dict['app']['version']
+        os.environ['DEBUG'] = str(config_dict['app']['debug']).lower()
+        os.environ['LANGUAGE'] = config_dict['app']['language']
+        
+        # สร้าง instance ใหม่
+        return cls()
 
 # สร้าง instance ของการตั้งค่า
 settings = Settings()

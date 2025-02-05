@@ -1,63 +1,63 @@
-# Web Framework
-fastapi>=0.68.1
-uvicorn>=0.15.0
-python-multipart>=0.0.5
-jinja2>=3.0.1
-aiofiles>=0.7.0
+# Core Dependencies - แพ็คเกจหลัก
+fastapi>=0.68.1         # เฟรมเวิร์คสำหรับสร้าง API
+uvicorn>=0.15.0        # เซิร์ฟเวอร์สำหรับรัน FastAPI
+python-multipart>=0.0.5 # จัดการข้อมูลแบบ form-data
+jinja2>=3.0.1          # เทมเพลตเอนจินสำหรับสร้างหน้าเว็บ
+aiofiles>=0.7.0        # จัดการไฟล์แบบ Async
 
-# Database
-sqlalchemy>=1.4.23
+# Database - ฐานข้อมูล
+sqlalchemy>=1.4.23     # ORM สำหรับจัดการฐานข้อมูล
 
-# Data Processing
-pandas>=1.3.0
-numpy>=1.21.0
-openpyxl>=3.0.9
-xlrd>=2.0.1
-xlwt>=1.3.0
-colorama>=0.4.4
-pathlib>=1.0.1
+# Data Processing - การประมวลผลข้อมูล
+pandas>=1.3.0          # จัดการข้อมูลตาราง
+numpy>=1.21.0          # คำนวณเชิงตัวเลข
+openpyxl>=3.0.9        # อ่าน/เขียนไฟล์ Excel
+xlrd>=2.0.1            # อ่านไฟล์ Excel เก่า
+xlwt>=1.3.0            # เขียนไฟล์ Excel เก่า
+colorama>=0.4.4        # แสดงสีในเทอร์มินัล
+pathlib>=1.0.1         # จัดการพาธของไฟล์
 
-# AI & Machine Learning
-scikit-learn>=1.0.2
-tensorflow>=2.7.0
-opencv-python>=4.5.0
-pytesseract>=0.3.8
-pdf2image>=1.16.0
+# AI & Machine Learning - ปัญญาประดิษฐ์และการเรียนรู้ของเครื่อง
+scikit-learn>=1.0.2    # ไลบรารีสำหรับ Machine Learning
+tensorflow>=2.7.0      # เฟรมเวิร์คสำหรับ Deep Learning
+opencv-python>=4.5.0   # ประมวลผลภาพ
+pytesseract>=0.3.8     # แปลงข้อความจากภาพ
+pdf2image>=1.16.0      # แปลง PDF เป็นรูปภาพ
 
-# Windows Specific
-pywin32>=301; platform_system == "Windows"
+# Windows Specific - สำหรับ Windows
+pywin32>=301; platform_system == "Windows"  # Windows API
 
-# Configuration
-python-dotenv>=0.19.0
-pydantic>=1.8.2
-PyYAML>=6.0.1
+# Configuration - การตั้งค่า
+python-dotenv>=0.19.0  # จัดการตัวแปรสภาพแวดล้อม
+pydantic>=1.8.2        # ตรวจสอบความถูกต้องของข้อมูล
+PyYAML>=6.0.1          # อ่าน/เขียนไฟล์ YAML
 
-# Security
-python-jose[cryptography]>=3.3.0
-passlib[bcrypt]>=1.7.4
-python-jwt>=4.0.0
-cryptography>=3.4.7
+# Security - ความปลอดภัย
+python-jose[cryptography]>=3.3.0  # จัดการ JWT
+passlib[bcrypt]>=1.7.4           # เข้ารหัสรหัสผ่าน
+python-jwt>=4.0.0                # จัดการ JWT แบบทางเลือก
+cryptography>=3.4.7              # เข้ารหัสข้อมูล
 
-# Testing
-pytest>=6.2.5
-pytest-cov>=2.12.1
-pytest-asyncio>=0.15.1
+# Testing - การทดสอบ
+pytest>=6.2.5         # ทดสอบโปรแกรม
+pytest-cov>=2.12.1    # วัดความครอบคลุมของการทดสอบ
+pytest-asyncio>=0.15.1 # ทดสอบฟังก์ชัน Async
 
-# Code Quality
-black>=21.9b0
-flake8>=3.9.2
-mypy>=0.910
+# Code Quality - คุณภาพโค้ด
+black>=21.9b0         # จัดรูปแบบโค้ด
+flake8>=3.9.2         # ตรวจสอบคุณภาพโค้ด
+mypy>=0.910           # ตรวจสอบประเภทข้อมูล
 
-# UI
-streamlit>=1.31.0
-streamlit-option-menu>=0.3.12
-streamlit-extras>=0.4.0
-plotly>=5.19.0
+# UI - ส่วนติดต่อผู้ใช้
+streamlit>=1.31.0            # สร้าง Web UI แบบง่าย
+streamlit-option-menu>=0.3.12 # เมนูแบบกำหนดเอง
+streamlit-extras>=0.4.0      # คอมโพเนนต์เพิ่มเติม
+plotly>=5.19.0              # กราฟแบบโต้ตอบได้
 
-# CLI
-rich>=13.7.0
-typer>=0.9.0
+# CLI - ส่วนติดต่อผู้ใช้แบบคำสั่ง
+rich>=13.7.0          # UI สวยงามในเทอร์มินัล
+typer>=0.9.0          # สร้าง CLI แบบง่าย
 
-# Networking
-requests>=2.26.0
-httpx>=0.23.0 
+# Networking - การเชื่อมต่อเครือข่าย
+requests>=2.26.0      # HTTP Client แบบปกติ
+httpx>=0.23.0         # HTTP Client แบบ Async 

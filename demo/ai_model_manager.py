@@ -1,3 +1,18 @@
+"""
+AI Model Manager
+--------------
+ระบบจัดการโมเดล AI สำหรับวิเคราะห์เอกสาร Excel
+
+สำหรับนักศึกษา:
+1. ศึกษาการสร้างโมเดล CNN และ LSTM
+2. เรียนรู้การประมวลผลภาพจาก Excel
+3. ทำความเข้าใจการ train และ evaluate โมเดล
+4. ศึกษาการจัดการ model weights และ checkpoints
+
+Author: ZanKinZuiTH
+Version: 1.0.0
+"""
+
 import numpy as np
 import tensorflow as tf
 from tensorflow.keras import layers, models
@@ -6,18 +21,44 @@ import pandas as pd
 from pathlib import Path
 import json
 import uuid
+import os
+import logging
+
+# ตั้งค่า logging
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
 
 class AIModelManager:
-    """จัดการระบบ AI สำหรับวิเคราะห์เอกสาร Excel"""
+    """จัดการโมเดล AI สำหรับวิเคราะห์เอกสาร Excel
+    
+    สำหรับนักศึกษา:
+    1. ศึกษาการทำงานของแต่ละ method
+    2. สังเกตการใช้ CNN สำหรับวิเคราะห์โครงสร้าง
+    3. สังเกตการใช้ LSTM สำหรับวิเคราะห์เนื้อหา
+    4. ทดลองปรับแต่ง hyperparameters
+    """
     
     def __init__(self):
-        """สร้าง AI Model Manager"""
+        """
+        กำหนดค่าเริ่มต้นสำหรับ AI Model Manager
+        
+        สำหรับนักศึกษา:
+        - สังเกตการสร้างโมเดลแยกสำหรับโครงสร้างและเนื้อหา
+        - ศึกษาการกำหนด input shape ที่เหมาะสม
+        """
         self.structure_model = self._create_structure_model()
         self.content_model = self._create_content_model()
-        self.current_model = None
+        logger.info("สร้าง AI Model Manager สำเร็จ")
     
     def _create_structure_model(self):
-        """สร้างโมเดล CNN สำหรับวิเคราะห์โครงสร้างเอกสาร"""
+        """
+        สร้างโมเดล CNN สำหรับวิเคราะห์โครงสร้างเอกสาร
+        
+        สำหรับนักศึกษา:
+        1. ศึกษาการออกแบบ CNN Architecture
+        2. สังเกตการใช้ layers ต่างๆ
+        3. ทดลองปรับ kernel size และ filters
+        """
         model = models.Sequential([
             layers.Conv2D(32, (3, 3), activation='relu', input_shape=(224, 224, 3)),
             layers.MaxPooling2D((2, 2)),
@@ -26,236 +67,270 @@ class AIModelManager:
             layers.Conv2D(64, (3, 3), activation='relu'),
             layers.Flatten(),
             layers.Dense(64, activation='relu'),
-            layers.Dense(3, activation='softmax')  # 3 ประเภทเอกสาร
+            layers.Dense(10, activation='softmax')
         ])
         model.compile(optimizer='adam',
-                     loss='categorical_crossentropy',
+                     loss='sparse_categorical_crossentropy',
                      metrics=['accuracy'])
         return model
     
     def _create_content_model(self):
-        """สร้างโมเดล CNN+LSTM สำหรับวิเคราะห์เนื้อหา"""
-        # CNN สำหรับสกัดคุณลักษณะ
-        cnn_input = layers.Input(shape=(224, 224, 3))
-        x = layers.Conv2D(32, (3, 3), activation='relu')(cnn_input)
-        x = layers.MaxPooling2D((2, 2))(x)
-        x = layers.Conv2D(64, (3, 3), activation='relu')(x)
-        x = layers.MaxPooling2D((2, 2))(x)
-        x = layers.Flatten()(x)
+        """
+        สร้างโมเดล CNN+LSTM สำหรับวิเคราะห์เนื้อหา
         
-        # LSTM สำหรับวิเคราะห์ลำดับ
-        lstm_input = layers.Input(shape=(None, 100))
-        y = layers.LSTM(64, return_sequences=True)(lstm_input)
-        y = layers.LSTM(32)(y)
-        
-        # รวม CNN และ LSTM
-        combined = layers.concatenate([x, y])
-        output = layers.Dense(128, activation='relu')(combined)
-        output = layers.Dense(10, activation='softmax')(output)  # 10 ประเภทฟิลด์
-        
-        model = models.Model(inputs=[cnn_input, lstm_input], outputs=output)
+        สำหรับนักศึกษา:
+        1. ศึกษาการผสมผสาน CNN กับ LSTM
+        2. สังเกตการจัดการ sequence data
+        3. ทดลองปรับ LSTM units และ layers
+        """
+        model = models.Sequential([
+            layers.Conv1D(64, 3, activation='relu', input_shape=(None, 100)),
+            layers.MaxPooling1D(2),
+            layers.Conv1D(128, 3, activation='relu'),
+            layers.MaxPooling1D(2),
+            layers.LSTM(64, return_sequences=True),
+            layers.LSTM(32),
+            layers.Dense(64, activation='relu'),
+            layers.Dense(32, activation='relu'),
+            layers.Dense(5, activation='softmax')
+        ])
         model.compile(optimizer='adam',
-                     loss='categorical_crossentropy',
+                     loss='sparse_categorical_crossentropy',
                      metrics=['accuracy'])
         return model
     
     def analyze_structure(self, file_path):
-        """วิเคราะห์โครงสร้างเอกสารด้วย CNN
+        """
+        วิเคราะห์โครงสร้างเอกสารด้วย CNN
         
         Args:
             file_path: พาธของไฟล์ Excel
             
         Returns:
-            dict: ผลการวิเคราะห์โครงสร้าง เช่น
-                {
-                    "ข้อมูลส่วนบุคคล": 0.95,
-                    "ประวัติการศึกษา": 0.85,
-                    "ประวัติการทำงาน": 0.90
-                }
+            Dict: ผลการวิเคราะห์โครงสร้าง
+            
+        สำหรับนักศึกษา:
+        1. ศึกษาการแปลงไฟล์ Excel เป็นรูปภาพ
+        2. สังเกตการ preprocess ข้อมูล
+        3. ทดลองปรับปรุงการวิเคราะห์
         """
-        # แปลงไฟล์ Excel เป็นรูปภาพ
-        image = self._convert_excel_to_image(file_path)
-        
-        # ทำนายด้วยโมเดล
-        prediction = self.structure_model.predict(np.array([image]))
-        
-        # แปลงผลลัพธ์
-        sections = ["ข้อมูลส่วนบุคคล", "ประวัติการศึกษา", "ประวัติการทำงาน"]
-        return {section: float(conf) for section, conf in zip(sections, prediction[0])}
+        try:
+            # แปลง Excel เป็นรูปภาพ
+            image = self._convert_excel_to_image(file_path)
+            
+            # Preprocess
+            image = cv2.resize(image, (224, 224))
+            image = image / 255.0
+            image = np.expand_dims(image, axis=0)
+            
+            # วิเคราะห์
+            prediction = self.structure_model.predict(image)
+            
+            return {
+                "structure_type": int(np.argmax(prediction[0])),
+                "confidence": float(np.max(prediction[0]))
+            }
+            
+        except Exception as e:
+            logger.error(f"เกิดข้อผิดพลาดในการวิเคราะห์โครงสร้าง: {str(e)}")
+            raise
     
     def analyze_content(self, file_path):
-        """วิเคราะห์เนื้อหาเอกสารด้วย CNN+LSTM
+        """
+        วิเคราะห์เนื้อหาเอกสารด้วย CNN+LSTM
         
         Args:
             file_path: พาธของไฟล์ Excel
             
         Returns:
-            dict: ผลการวิเคราะห์เนื้อหา เช่น
-                {
-                    "ชื่อ-นามสกุล": {
-                        "value": "นายสมชาย รักเรียน",
-                        "confidence": 0.95
-                    },
-                    "เลขประจำตัวประชาชน": {
-                        "value": "1234567890123",
-                        "confidence": 0.98
-                    }
-                }
+            Dict: ผลการวิเคราะห์เนื้อหา
+            
+        สำหรับนักศึกษา:
+        1. ศึกษาการสกัด features จากข้อมูล
+        2. สังเกตการจัดการ sequence data
+        3. ทดลองปรับปรุงการวิเคราะห์
         """
-        # อ่านข้อมูลจากไฟล์ Excel
-        df = pd.read_excel(file_path)
-        
-        # แปลงข้อมูลเป็นรูปแบบที่เหมาะสม
-        image = self._convert_excel_to_image(file_path)
-        sequence = self._extract_sequence_features(df)
-        
-        # ทำนายด้วยโมเดล
-        prediction = self.content_model.predict([np.array([image]), np.array([sequence])])
-        
-        # แปลงผลลัพธ์
-        fields = self._extract_fields(df)
-        result = {}
-        for field, value, conf in zip(fields, df.iloc[0], prediction[0]):
-            result[field] = {
-                "value": str(value),
-                "confidence": float(conf)
+        try:
+            # อ่านข้อมูล
+            df = pd.read_excel(file_path)
+            
+            # สกัด features
+            features = self._extract_sequence_features(df)
+            
+            # Preprocess
+            features = np.expand_dims(features, axis=0)
+            
+            # วิเคราะห์
+            prediction = self.content_model.predict(features)
+            
+            return {
+                "content_type": int(np.argmax(prediction[0])),
+                "confidence": float(np.max(prediction[0])),
+                "fields": self._extract_fields(df)
             }
-        return result
+            
+        except Exception as e:
+            logger.error(f"เกิดข้อผิดพลาดในการวิเคราะห์เนื้อหา: {str(e)}")
+            raise
     
     def create_template(self, file_path):
-        """สร้างเทมเพลตอัตโนมัติจากการวิเคราะห์
+        """
+        สร้าง Template อัตโนมัติจากการวิเคราะห์
         
         Args:
             file_path: พาธของไฟล์ Excel
             
         Returns:
-            dict: ข้อมูลเทมเพลต เช่น
-                {
-                    "id": "template-123",
-                    "fields": ["ชื่อ-นามสกุล", "เลขประจำตัวประชาชน", ...]
-                }
+            Dict: Template ที่สร้างขึ้น
+            
+        สำหรับนักศึกษา:
+        1. ศึกษาการรวมผลการวิเคราะห์
+        2. สังเกตการสร้าง Template
+        3. ทดลองปรับปรุงการสร้าง Template
         """
-        # วิเคราะห์โครงสร้างและเนื้อหา
-        structure = self.analyze_structure(file_path)
-        content = self.analyze_content(file_path)
-        
-        # สร้างเทมเพลต
-        template = {
-            "id": f"template-{uuid.uuid4().hex[:8]}",
-            "fields": list(content.keys())
-        }
-        
-        # บันทึกเทมเพลต
-        template_path = Path("templates") / f"{template['id']}.json"
-        template_path.parent.mkdir(exist_ok=True)
-        with open(template_path, "w", encoding="utf-8") as f:
-            json.dump(template, f, ensure_ascii=False, indent=2)
-        
-        return template
+        try:
+            # วิเคราะห์โครงสร้างและเนื้อหา
+            structure = self.analyze_structure(file_path)
+            content = self.analyze_content(file_path)
+            
+            # สร้าง Template
+            template = {
+                "id": str(uuid.uuid4()),
+                "structure_type": structure["structure_type"],
+                "content_type": content["content_type"],
+                "fields": content["fields"],
+                "confidence": min(structure["confidence"], content["confidence"])
+            }
+            
+            return template
+            
+        except Exception as e:
+            logger.error(f"เกิดข้อผิดพลาดในการสร้าง Template: {str(e)}")
+            raise
     
     def train(self, files, epochs=10, batch_size=32):
-        """ฝึกฝนโมเดลด้วยข้อมูลใหม่
+        """
+        เทรนโมเดลด้วยข้อมูลใหม่
         
         Args:
-            files: รายการไฟล์สำหรับฝึกฝน
-            epochs: จำนวนรอบการฝึกฝน
-            batch_size: ขนาดแบตช์
+            files: List ของไฟล์สำหรับเทรน
+            epochs: จำนวนรอบการเทรน
+            batch_size: ขนาด batch
             
         Returns:
-            dict: ผลการฝึกฝน เช่น
-                {
-                    "accuracy": 0.95,
-                    "loss": 0.05
-                }
+            Dict: ผลการเทรน
+            
+        สำหรับนักศึกษา:
+        1. ศึกษาการเตรียมข้อมูลสำหรับเทรน
+        2. สังเกตการใช้ callbacks
+        3. ทดลองปรับ hyperparameters
         """
-        # เตรียมข้อมูลสำหรับฝึกฝน
-        X_structure = []
-        y_structure = []
-        X_content_image = []
-        X_content_sequence = []
-        y_content = []
-        
-        for file in files:
-            # อ่านข้อมูล
-            df = pd.read_excel(file)
-            image = self._convert_excel_to_image(file)
-            sequence = self._extract_sequence_features(df)
+        try:
+            # เตรียมข้อมูลสำหรับ structure model
+            structure_images = []
+            structure_labels = []
             
-            # เพิ่มข้อมูลสำหรับโมเดลโครงสร้าง
-            X_structure.append(image)
-            y_structure.append(self._get_structure_label(file))
+            # เตรียมข้อมูลสำหรับ content model
+            content_sequences = []
+            content_labels = []
             
-            # เพิ่มข้อมูลสำหรับโมเดลเนื้อหา
-            X_content_image.append(image)
-            X_content_sequence.append(sequence)
-            y_content.append(self._get_content_labels(df))
-        
-        # แปลงเป็น numpy array
-        X_structure = np.array(X_structure)
-        y_structure = np.array(y_structure)
-        X_content_image = np.array(X_content_image)
-        X_content_sequence = np.array(X_content_sequence)
-        y_content = np.array(y_content)
-        
-        # ฝึกฝนโมเดลโครงสร้าง
-        structure_history = self.structure_model.fit(
-            X_structure, y_structure,
-            epochs=epochs,
-            batch_size=batch_size,
-            validation_split=0.2
-        )
-        
-        # ฝึกฝนโมเดลเนื้อหา
-        content_history = self.content_model.fit(
-            [X_content_image, X_content_sequence], y_content,
-            epochs=epochs,
-            batch_size=batch_size,
-            validation_split=0.2
-        )
-        
-        # คำนวณผลรวม
-        return {
-            "accuracy": (structure_history.history['accuracy'][-1] + 
-                       content_history.history['accuracy'][-1]) / 2,
-            "loss": (structure_history.history['loss'][-1] + 
-                    content_history.history['loss'][-1]) / 2
-        }
+            # โหลดและเตรียมข้อมูล
+            for file in files:
+                # Structure data
+                image = self._convert_excel_to_image(file)
+                image = cv2.resize(image, (224, 224))
+                image = image / 255.0
+                structure_images.append(image)
+                structure_labels.append(self._get_structure_label(file))
+                
+                # Content data
+                df = pd.read_excel(file)
+                features = self._extract_sequence_features(df)
+                content_sequences.append(features)
+                content_labels.append(self._get_content_labels(df))
+            
+            # แปลงเป็น numpy array
+            structure_images = np.array(structure_images)
+            structure_labels = np.array(structure_labels)
+            content_sequences = np.array(content_sequences)
+            content_labels = np.array(content_labels)
+            
+            # เทรนโมเดล
+            structure_history = self.structure_model.fit(
+                structure_images, structure_labels,
+                epochs=epochs,
+                batch_size=batch_size,
+                validation_split=0.2
+            )
+            
+            content_history = self.content_model.fit(
+                content_sequences, content_labels,
+                epochs=epochs,
+                batch_size=batch_size,
+                validation_split=0.2
+            )
+            
+            return {
+                "structure_accuracy": float(structure_history.history['accuracy'][-1]),
+                "structure_loss": float(structure_history.history['loss'][-1]),
+                "content_accuracy": float(content_history.history['accuracy'][-1]),
+                "content_loss": float(content_history.history['loss'][-1])
+            }
+            
+        except Exception as e:
+            logger.error(f"เกิดข้อผิดพลาดในการเทรนโมเดล: {str(e)}")
+            raise
     
     def save_model(self):
-        """บันทึกโมเดลปัจจุบัน
+        """
+        บันทึกโมเดลและ return model ID
         
         Returns:
-            str: ID ของโมเดล
+            str: ID ของโมเดลที่บันทึก
+            
+        สำหรับนักศึกษา:
+        1. ศึกษาการบันทึกโมเดลและ weights
+        2. สังเกตการจัดการ model ID
+        3. ทดลองปรับปรุงการบันทึกโมเดล
         """
-        model_id = f"model-{uuid.uuid4().hex[:8]}"
-        model_dir = Path("models") / model_id
-        model_dir.mkdir(parents=True, exist_ok=True)
-        
-        # บันทึกโมเดล
-        self.structure_model.save(model_dir / "structure_model")
-        self.content_model.save(model_dir / "content_model")
-        
-        return model_id
+        try:
+            model_id = str(uuid.uuid4())
+            
+            # สร้างโฟลเดอร์
+            os.makedirs(f"models/{model_id}", exist_ok=True)
+            
+            # บันทึกโมเดล
+            self.structure_model.save(f"models/{model_id}/structure_model")
+            self.content_model.save(f"models/{model_id}/content_model")
+            
+            return model_id
+            
+        except Exception as e:
+            logger.error(f"เกิดข้อผิดพลาดในการบันทึกโมเดล: {str(e)}")
+            raise
     
     def load_model(self, model_id):
-        """โหลดโมเดลจาก ID
+        """
+        โหลดโมเดลจาก ID
         
         Args:
-            model_id: ID ของโมเดล
+            model_id: ID ของโมเดลที่ต้องการโหลด
             
-        Returns:
-            bool: True ถ้าโหลดสำเร็จ
+        สำหรับนักศึกษา:
+        1. ศึกษาการโหลดโมเดลและ weights
+        2. สังเกตการตรวจสอบความถูกต้อง
+        3. ทดลองปรับปรุงการโหลดโมเดล
         """
-        model_dir = Path("models") / model_id
-        if not model_dir.exists():
-            return False
-        
-        # โหลดโมเดล
-        self.structure_model = models.load_model(model_dir / "structure_model")
-        self.content_model = models.load_model(model_dir / "content_model")
-        self.current_model = model_id
-        
-        return True
+        try:
+            # โหลดโมเดล
+            self.structure_model = tf.keras.models.load_model(f"models/{model_id}/structure_model")
+            self.content_model = tf.keras.models.load_model(f"models/{model_id}/content_model")
+            
+            logger.info(f"โหลดโมเดล {model_id} สำเร็จ")
+            
+        except Exception as e:
+            logger.error(f"เกิดข้อผิดพลาดในการโหลดโมเดล: {str(e)}")
+            raise
     
     def _convert_excel_to_image(self, file_path):
         """แปลงไฟล์ Excel เป็นรูปภาพ"""
