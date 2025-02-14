@@ -10,7 +10,7 @@ AI Model Manager
 4. ศึกษาการจัดการ model weights และ checkpoints
 
 Author: ZanKinZuiTH
-Version: 1.1.0
+Version: 1.1.1
 """
 
 import numpy as np
@@ -26,6 +26,8 @@ import logging
 from sklearn.preprocessing import StandardScaler
 from sklearn.model_selection import train_test_split
 from prophet import Prophet
+from memory_profiler import profile
+import gc
 
 # ตั้งค่า logging
 logging.basicConfig(level=logging.INFO)
@@ -46,13 +48,62 @@ class AIModelManager:
         กำหนดค่าเริ่มต้นสำหรับ AI Model Manager
         
         สำหรับนักศึกษา:
-        - สังเกตการสร้างโมเดลแยกสำหรับโครงสร้างและเนื้อหา
-        - ศึกษาการกำหนด input shape ที่เหมาะสม
+        - สังเกตการตั้งค่า GPU
+        - ศึกษาการจัดการ memory
         """
-        self.structure_model = self._create_structure_model()
-        self.content_model = self._create_content_model()
-        logger.info("สร้าง AI Model Manager สำเร็จ")
+        # ตั้งค่า GPU
+        self._setup_gpu()
+        
+        # สร้างโมเดล
+        try:
+            self.structure_model = self._create_structure_model()
+            self.content_model = self._create_content_model()
+            logger.info("สร้าง AI Model Manager สำเร็จ")
+        except Exception as e:
+            logger.error(f"เกิดข้อผิดพลาดในการสร้างโมเดล: {str(e)}")
+            raise
     
+    def _setup_gpu(self):
+        """ตั้งค่า GPU และจัดการ memory"""
+        try:
+            # ตรวจสอบและตั้งค่า GPU
+            gpus = tf.config.list_physical_devices('GPU')
+            if gpus:
+                for gpu in gpus:
+                    tf.config.experimental.set_memory_growth(gpu, True)
+                logger.info(f"ตั้งค่า GPU สำเร็จ: {len(gpus)} devices")
+            else:
+                logger.warning("ไม่พบ GPU ที่รองรับ CUDA")
+                
+            # ตั้งค่า memory limit
+            tf.config.set_soft_device_placement(True)
+            tf.config.threading.set_intra_op_parallelism_threads(6)
+            tf.config.threading.set_inter_op_parallelism_threads(6)
+        except Exception as e:
+            logger.error(f"เกิดข้อผิดพลาดในการตั้งค่า GPU: {str(e)}")
+            raise
+
+    def _validate_input_data(self, data: pd.DataFrame) -> bool:
+        """
+        ตรวจสอบความถูกต้องของข้อมูล input
+        
+        Args:
+            data: DataFrame ที่ต้องการตรวจสอบ
+            
+        Returns:
+            bool: True ถ้าข้อมูลถูกต้อง
+            
+        Raises:
+            ValueError: ถ้าข้อมูลไม่ถูกต้อง
+        """
+        if data is None or data.empty:
+            raise ValueError("ข้อมูลว่างเปล่า")
+            
+        if data.isnull().values.any():
+            raise ValueError("พบค่า null ในข้อมูล")
+            
+        return True
+
     def _create_structure_model(self):
         """
         สร้างโมเดล CNN สำหรับวิเคราะห์โครงสร้างเอกสาร
@@ -359,49 +410,73 @@ class AIModelManager:
         # จำลองการรับป้ายกำกับ
         return np.random.rand(10)
 
+    @profile
     def analyze_trends(self, file_path: str, target_column: str) -> Dict[str, Any]:
         """
-        วิเคราะห์แนวโน้มของข้อมูลด้วย Prophet
+        วิเคราะห์แนวโน้มด้วย Prophet (พร้อมการจัดการ memory)
         
         Args:
             file_path: พาธของไฟล์ Excel
-            target_column: คอลัมน์ที่ต้องการวิเคราะห์
+            target_column: ชื่อคอลัมน์ที่ต้องการวิเคราะห์
             
         Returns:
-            Dict: ผลการวิเคราะห์แนวโน้ม
+            Dict containing:
+            - trend: แนวโน้มที่วิเคราะห์ได้
+            - forecast: การคาดการณ์
+            - seasonality: รูปแบบฤดูกาล
+            
+        Raises:
+            FileNotFoundError: ถ้าไม่พบไฟล์
+            ValueError: ถ้าข้อมูลไม่ถูกต้อง
         """
         try:
             # อ่านข้อมูล
             df = pd.read_excel(file_path)
+            self._validate_input_data(df)
             
             # เตรียมข้อมูลสำหรับ Prophet
-            df_prophet = pd.DataFrame({
-                'ds': df.index,
-                'y': df[target_column]
+            df_prophet = df.rename(columns={
+                target_column: 'y',
+                df.columns[0]: 'ds'
             })
             
             # สร้างและ fit โมเดล
-            model = Prophet(yearly_seasonality=True, 
-                           weekly_seasonality=True,
-                           daily_seasonality=True)
+            model = Prophet(
+                yearly_seasonality=True,
+                weekly_seasonality=True,
+                daily_seasonality=True
+            )
             model.fit(df_prophet)
             
-            # สร้างช่วงเวลาสำหรับการทำนาย
+            # สร้างการคาดการณ์
             future = model.make_future_dataframe(periods=30)
             forecast = model.predict(future)
             
-            return {
-                "trend": forecast['trend'].tolist(),
-                "forecast": forecast['yhat'].tolist(),
-                "forecast_lower": forecast['yhat_lower'].tolist(),
-                "forecast_upper": forecast['yhat_upper'].tolist(),
-                "seasonality": {
-                    "yearly": model.yearly_seasonality,
-                    "weekly": model.weekly_seasonality,
-                    "daily": model.daily_seasonality
+            # ดึงข้อมูลที่สำคัญ
+            result = {
+                'trend': forecast['trend'].values.tolist(),
+                'forecast': forecast['yhat'].values.tolist(),
+                'forecast_upper': forecast['yhat_upper'].values.tolist(),
+                'forecast_lower': forecast['yhat_lower'].values.tolist(),
+                'seasonality': {
+                    'yearly': model.yearly_seasonality,
+                    'weekly': model.weekly_seasonality,
+                    'daily': model.daily_seasonality
                 }
             }
             
+            # ทำความสะอาด memory
+            del model, forecast, future, df_prophet
+            gc.collect()
+            
+            return result
+            
+        except FileNotFoundError:
+            logger.error(f"ไม่พบไฟล์: {file_path}")
+            raise
+        except ValueError as e:
+            logger.error(f"ข้อมูลไม่ถูกต้อง: {str(e)}")
+            raise
         except Exception as e:
             logger.error(f"เกิดข้อผิดพลาดในการวิเคราะห์แนวโน้ม: {str(e)}")
             raise

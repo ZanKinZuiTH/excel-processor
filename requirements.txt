@@ -9,7 +9,7 @@ aiofiles>=0.7.0        # จัดการไฟล์แบบ Async
 sqlalchemy>=1.4.23     # ORM สำหรับจัดการฐานข้อมูล
 
 # Data Processing - การประมวลผลข้อมูล
-pandas>=1.3.0          # จัดการข้อมูลตาราง
+pandas>=1.4.0          # จัดการข้อมูลตาราง
 numpy>=1.21.0          # คำนวณเชิงตัวเลข
 openpyxl>=3.0.9        # อ่าน/เขียนไฟล์ Excel
 xlrd>=2.0.1            # อ่านไฟล์ Excel เก่า
@@ -19,7 +19,8 @@ pathlib>=1.0.1         # จัดการพาธของไฟล์
 
 # AI & Machine Learning - ปัญญาประดิษฐ์และการเรียนรู้ของเครื่อง
 scikit-learn>=1.0.2    # ไลบรารีสำหรับ Machine Learning
-tensorflow>=2.8.0        # เฟรมเวิร์คสำหรับ Deep Learning
+tensorflow>=2.10.0     # เฟรมเวิร์คสำหรับ Deep Learning
+tensorflow-gpu>=2.10.0 # GPU support สำหรับ TensorFlow
 opencv-python>=4.5.0   # ประมวลผลภาพ
 pytesseract>=0.3.8     # แปลงข้อความจากภาพ
 pdf2image>=1.16.0      # แปลง PDF เป็นรูปภาพ
@@ -73,8 +74,10 @@ python-Levenshtein>=0.12.2       # เพิ่มประสิทธิภา
 
 # Monitoring - การติดตามระบบ
 psutil>=5.9.0         # ติดตามทรัพยากรระบบ
-prometheus_client>=0.19.0  # ส่งออก metrics ให้ Prometheus 
+prometheus_client>=0.19.0  # ส่งออก metrics ให้ Prometheus
+python-logrotate>=0.5.0   # จัดการ log rotation
+memory-profiler>=0.60.0   # ติดตามการใช้ memory
 
 # AI และการวิเคราะห์ข้อมูล
-prophet>=1.1.1
-pandas>=1.4.0 
+prophet>=1.1.1        # วิเคราะห์แนวโน้มข้อมูล
+pandas>=1.4.0         # จัดการข้อมูล (ใช้เวอร์ชันเดียวกับด้านบน) 

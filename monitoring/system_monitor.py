@@ -6,6 +6,8 @@
 2. เรียนรู้การสร้างกราฟด้วย Plotly
 3. ทำความเข้าใจการทำงานของ Prometheus
 4. ฝึกการจัดการ metrics และการสร้างรายงาน
+
+Version: 1.1.0
 """
 
 import psutil
@@ -17,19 +19,34 @@ from datetime import datetime, timedelta
 import pandas as pd
 from typing import Dict, List, Any, Optional
 import logging
+from logging.handlers import RotatingFileHandler
 from prometheus_client import start_http_server, Gauge
 import numpy as np
 import time
 import threading
 from dataclasses import dataclass
 from enum import Enum
+import gc
+from memory_profiler import profile
 
-# ตั้งค่า logging
-logging.basicConfig(
-    level=logging.INFO,
-    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
+# ตั้งค่า logging with rotation
+log_file = 'system_monitor.log'
+max_bytes = 10 * 1024 * 1024  # 10MB
+backup_count = 5
+
+handler = RotatingFileHandler(
+    log_file,
+    maxBytes=max_bytes,
+    backupCount=backup_count
 )
+formatter = logging.Formatter(
+    '%(asctime)s - %(name)s - %(levelname)s - %(message)s'
+)
+handler.setFormatter(formatter)
+
 logger = logging.getLogger(__name__)
+logger.setLevel(logging.INFO)
+logger.addHandler(handler)
 
 class AlertLevel(Enum):
     """
@@ -137,6 +154,10 @@ class SystemMonitor:
         # เพิ่ม Prometheus metrics สำหรับการแจ้งเตือน
         self.alert_gauge = Gauge('system_alerts_total', 'Total number of active alerts')
         
+        # ตั้งค่าการ backup
+        self.backup_dir = Path('backup/metrics')
+        self.backup_dir.mkdir(parents=True, exist_ok=True)
+        
         logger.info(f"เริ่มต้นระบบติดตามด้วยระยะเวลาเก็บข้อมูล {collection_interval} วินาที")
     
     def start_collecting(self):
@@ -180,21 +201,74 @@ class SystemMonitor:
         while self.is_collecting:
             try:
                 self.get_system_metrics()
+                self._backup_metrics()
+                self._cleanup_old_data()
                 time.sleep(self.collection_interval)
             except Exception as e:
                 logger.error(f"เกิดข้อผิดพลาดในการเก็บข้อมูล: {str(e)}")
     
+    def _backup_metrics(self):
+        """Backup metrics ไปยังไฟล์"""
+        try:
+            timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
+            backup_file = self.backup_dir / f'metrics_{timestamp}.json'
+            
+            with open(backup_file, 'w', encoding='utf-8') as f:
+                json.dump({
+                    'metrics': self.metrics_history,
+                    'alerts': [
+                        {
+                            'timestamp': a.timestamp.isoformat(),
+                            'level': a.level.value,
+                            'message': a.message,
+                            'metric_name': a.metric_name,
+                            'metric_value': a.metric_value,
+                            'threshold': a.threshold
+                        }
+                        for a in self.alert_history
+                    ]
+                }, f, ensure_ascii=False, indent=2)
+            
+            # ลบไฟล์ backup เก่า (เก็บแค่ 7 วัน)
+            for old_file in sorted(self.backup_dir.glob('metrics_*.json'))[:-7]:
+                old_file.unlink()
+                
+            logger.info(f"Backup metrics ไปยัง {backup_file} สำเร็จ")
+        except Exception as e:
+            logger.error(f"เกิดข้อผิดพลาดในการ backup metrics: {str(e)}")
+    
+    def _cleanup_old_data(self):
+        """ทำความสะอาดข้อมูลเก่า"""
+        try:
+            # เก็บข้อมูลย้อนหลัง 30 วัน
+            cutoff_date = datetime.now() - timedelta(days=30)
+            
+            # ทำความสะอาด metrics
+            self.metrics_history = [
+                m for m in self.metrics_history
+                if m['timestamp'] > cutoff_date
+            ]
+            
+            # ทำความสะอาด alerts
+            self.alert_history = [
+                a for a in self.alert_history
+                if a.timestamp > cutoff_date
+            ]
+            
+            # เรียก garbage collector
+            gc.collect()
+            
+            logger.info("ทำความสะอาดข้อมูลเก่าเรียบร้อย")
+        except Exception as e:
+            logger.error(f"เกิดข้อผิดพลาดในการทำความสะอาดข้อมูล: {str(e)}")
+    
+    @profile
     def get_system_metrics(self) -> Dict[str, float]:
         """
         เก็บข้อมูล metrics ของระบบ
         
         Returns:
-            Dict[str, float]: metrics ของระบบ
-            
-        สำหรับนักศึกษา:
-        - ศึกษาการใช้ psutil
-        - เรียนรู้การคำนวณการใช้ทรัพยากร
-        - ทำความเข้าใจหน่วยวัดต่างๆ
+            Dict ของ metrics ต่างๆ
         """
         try:
             # CPU
