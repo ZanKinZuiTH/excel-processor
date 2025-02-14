@@ -211,7 +211,7 @@ elif selected == "AI Analysis":
     # เลือกประเภทการวิเคราะห์
     analysis_type = st.radio(
         "เลือกประเภทการวิเคราะห์",
-        ["วิเคราะห์เอกสาร", "สร้างเทมเพลต", "เทรนโมเดล"]
+        ["วิเคราะห์เอกสาร", "วิเคราะห์แนวโน้ม", "คาดการณ์ข้อมูล", "สร้างเทมเพลต", "เทรนโมเดล"]
     )
     
     if analysis_type == "วิเคราะห์เอกสาร":
@@ -248,6 +248,105 @@ elif selected == "AI Analysis":
                     # ลบไฟล์ชั่วคราว
                     temp_path.unlink()
     
+    elif analysis_type == "วิเคราะห์แนวโน้ม":
+        uploaded_file = st.file_uploader("เลือกไฟล์ Excel สำหรับวิเคราะห์แนวโน้ม", type=['xlsx', 'xls'])
+        
+        if uploaded_file is not None:
+            # อ่านข้อมูล
+            df = pd.read_excel(uploaded_file)
+            target_column = st.selectbox("เลือกคอลัมน์ที่ต้องการวิเคราะห์", df.columns)
+            
+            if st.button("วิเคราะห์แนวโน้ม"):
+                with st.spinner('กำลังวิเคราะห์แนวโน้ม...'):
+                    # บันทึกไฟล์
+                    temp_path = Path("temp") / uploaded_file.name
+                    temp_path.parent.mkdir(exist_ok=True)
+                    temp_path.write_bytes(uploaded_file.getvalue())
+                    
+                    try:
+                        # วิเคราะห์แนวโน้ม
+                        trends = st.session_state.ai_manager.analyze_trends(str(temp_path), target_column)
+                        
+                        # แสดงผลการวิเคราะห์
+                        st.markdown("### 📈 ผลการวิเคราะห์แนวโน้ม")
+                        
+                        # สร้างกราฟแนวโน้ม
+                        fig = go.Figure()
+                        fig.add_trace(go.Scatter(y=trends['trend'], name='แนวโน้ม'))
+                        fig.add_trace(go.Scatter(y=trends['forecast'], name='การคาดการณ์'))
+                        fig.add_trace(go.Scatter(y=trends['forecast_upper'], 
+                                               fill=None, mode='lines', name='ขอบบน'))
+                        fig.add_trace(go.Scatter(y=trends['forecast_lower'], 
+                                               fill='tonexty', mode='lines', name='ขอบล่าง'))
+                        
+                        st.plotly_chart(fig)
+                        
+                        # แสดงรายละเอียดฤดูกาล
+                        st.markdown("### 🔄 รูปแบบฤดูกาล")
+                        st.json(trends['seasonality'])
+                        
+                    except Exception as e:
+                        st.error(f"เกิดข้อผิดพลาด: {str(e)}")
+                        logger.error(f"เกิดข้อผิดพลาดในการวิเคราะห์แนวโน้ม: {str(e)}")
+                    
+                    finally:
+                        # ลบไฟล์ชั่วคราว
+                        temp_path.unlink()
+                        
+    elif analysis_type == "คาดการณ์ข้อมูล":
+        uploaded_file = st.file_uploader("เลือกไฟล์ Excel สำหรับคาดการณ์", type=['xlsx', 'xls'])
+        
+        if uploaded_file is not None:
+            # อ่านข้อมูล
+            df = pd.read_excel(uploaded_file)
+            target_column = st.selectbox("เลือกคอลัมน์ที่ต้องการคาดการณ์", df.columns)
+            periods = st.slider("จำนวนช่วงเวลาที่ต้องการคาดการณ์", 1, 90, 30)
+            
+            if st.button("คาดการณ์"):
+                with st.spinner('กำลังคาดการณ์...'):
+                    # บันทึกไฟล์
+                    temp_path = Path("temp") / uploaded_file.name
+                    temp_path.parent.mkdir(exist_ok=True)
+                    temp_path.write_bytes(uploaded_file.getvalue())
+                    
+                    try:
+                        # คาดการณ์
+                        predictions = st.session_state.ai_manager.predict_future_values(
+                            str(temp_path), target_column, periods)
+                        
+                        # แสดงผลการคาดการณ์
+                        st.markdown("### 🔮 ผลการคาดการณ์")
+                        
+                        # สร้างกราฟการคาดการณ์
+                        fig = go.Figure()
+                        fig.add_trace(go.Scatter(y=predictions['predictions'], name='การคาดการณ์'))
+                        fig.add_trace(go.Scatter(y=predictions['confidence_intervals']['upper'], 
+                                               fill=None, mode='lines', name='ขอบบน'))
+                        fig.add_trace(go.Scatter(y=predictions['confidence_intervals']['lower'], 
+                                               fill='tonexty', mode='lines', name='ขอบล่าง'))
+                        
+                        st.plotly_chart(fig)
+                        
+                        # แสดงเมตริกซ์
+                        st.markdown("### 📊 เมตริกซ์การคาดการณ์")
+                        st.json(predictions['metrics'])
+                        
+                        # แสดงความสำคัญของคุณลักษณะ
+                        st.markdown("### 🎯 ความสำคัญของคุณลักษณะ")
+                        feature_importance = pd.DataFrame.from_dict(
+                            predictions['metrics']['feature_importance'], 
+                            orient='index', 
+                            columns=['ความสำคัญ'])
+                        st.bar_chart(feature_importance)
+                        
+                    except Exception as e:
+                        st.error(f"เกิดข้อผิดพลาด: {str(e)}")
+                        logger.error(f"เกิดข้อผิดพลาดในการคาดการณ์: {str(e)}")
+                    
+                    finally:
+                        # ลบไฟล์ชั่วคราว
+                        temp_path.unlink()
+
     elif analysis_type == "สร้างเทมเพลต":
         uploaded_file = st.file_uploader("เลือกไฟล์ Excel สำหรับสร้างเทมเพลต", type=['xlsx', 'xls'])
         

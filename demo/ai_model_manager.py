@@ -10,7 +10,7 @@ AI Model Manager
 4. ศึกษาการจัดการ model weights และ checkpoints
 
 Author: ZanKinZuiTH
-Version: 1.0.0
+Version: 1.1.0
 """
 
 import numpy as np
@@ -23,6 +23,9 @@ import json
 import uuid
 import os
 import logging
+from sklearn.preprocessing import StandardScaler
+from sklearn.model_selection import train_test_split
+from prophet import Prophet
 
 # ตั้งค่า logging
 logging.basicConfig(level=logging.INFO)
@@ -354,4 +357,136 @@ class AIModelManager:
     def _get_content_labels(self, df):
         """รับป้ายกำกับเนื้อหาจาก DataFrame"""
         # จำลองการรับป้ายกำกับ
-        return np.random.rand(10) 
+        return np.random.rand(10)
+
+    def analyze_trends(self, file_path: str, target_column: str) -> Dict[str, Any]:
+        """
+        วิเคราะห์แนวโน้มของข้อมูลด้วย Prophet
+        
+        Args:
+            file_path: พาธของไฟล์ Excel
+            target_column: คอลัมน์ที่ต้องการวิเคราะห์
+            
+        Returns:
+            Dict: ผลการวิเคราะห์แนวโน้ม
+        """
+        try:
+            # อ่านข้อมูล
+            df = pd.read_excel(file_path)
+            
+            # เตรียมข้อมูลสำหรับ Prophet
+            df_prophet = pd.DataFrame({
+                'ds': df.index,
+                'y': df[target_column]
+            })
+            
+            # สร้างและ fit โมเดล
+            model = Prophet(yearly_seasonality=True, 
+                           weekly_seasonality=True,
+                           daily_seasonality=True)
+            model.fit(df_prophet)
+            
+            # สร้างช่วงเวลาสำหรับการทำนาย
+            future = model.make_future_dataframe(periods=30)
+            forecast = model.predict(future)
+            
+            return {
+                "trend": forecast['trend'].tolist(),
+                "forecast": forecast['yhat'].tolist(),
+                "forecast_lower": forecast['yhat_lower'].tolist(),
+                "forecast_upper": forecast['yhat_upper'].tolist(),
+                "seasonality": {
+                    "yearly": model.yearly_seasonality,
+                    "weekly": model.weekly_seasonality,
+                    "daily": model.daily_seasonality
+                }
+            }
+            
+        except Exception as e:
+            logger.error(f"เกิดข้อผิดพลาดในการวิเคราะห์แนวโน้ม: {str(e)}")
+            raise
+
+    def predict_future_values(self, file_path: str, target_column: str, 
+                             periods: int = 30) -> Dict[str, Any]:
+        """
+        คาดการณ์ค่าในอนาคต
+        
+        Args:
+            file_path: พาธของไฟล์ Excel
+            target_column: คอลัมน์ที่ต้องการคาดการณ์
+            periods: จำนวนช่วงเวลาที่ต้องการคาดการณ์
+            
+        Returns:
+            Dict: ผลการคาดการณ์
+        """
+        try:
+            # อ่านและเตรียมข้อมูล
+            df = pd.read_excel(file_path)
+            
+            # สร้างคุณลักษณะเพิ่มเติม
+            df['month'] = df.index.month
+            df['day_of_week'] = df.index.dayofweek
+            df['quarter'] = df.index.quarter
+            
+            # แบ่งข้อมูล
+            X = df.drop(columns=[target_column])
+            y = df[target_column]
+            X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2)
+            
+            # สร้างและเทรนโมเดล LSTM
+            model = tf.keras.Sequential([
+                layers.LSTM(64, return_sequences=True),
+                layers.LSTM(32),
+                layers.Dense(16, activation='relu'),
+                layers.Dense(1)
+            ])
+            
+            model.compile(optimizer='adam', loss='mse')
+            model.fit(X_train, y_train, epochs=100, batch_size=32, validation_split=0.2)
+            
+            # คาดการณ์
+            future_data = self._generate_future_features(df, periods)
+            predictions = model.predict(future_data)
+            
+            return {
+                "predictions": predictions.flatten().tolist(),
+                "confidence_intervals": {
+                    "lower": [p - 1.96 * np.std(predictions) for p in predictions],
+                    "upper": [p + 1.96 * np.std(predictions) for p in predictions]
+                },
+                "metrics": {
+                    "mse": float(model.evaluate(X_test, y_test)),
+                    "feature_importance": self._calculate_feature_importance(model, X_train)
+                }
+            }
+            
+        except Exception as e:
+            logger.error(f"เกิดข้อผิดพลาดในการคาดการณ์: {str(e)}")
+            raise
+
+    def _generate_future_features(self, df: pd.DataFrame, periods: int) -> np.ndarray:
+        """สร้างคุณลักษณะสำหรับการคาดการณ์ในอนาคต"""
+        last_date = df.index[-1]
+        future_dates = pd.date_range(start=last_date, periods=periods + 1)[1:]
+        
+        future_df = pd.DataFrame(index=future_dates)
+        future_df['month'] = future_df.index.month
+        future_df['day_of_week'] = future_df.index.dayofweek
+        future_df['quarter'] = future_df.index.quarter
+        
+        return future_df.values
+
+    def _calculate_feature_importance(self, model: tf.keras.Model, 
+                                    X_train: np.ndarray) -> Dict[str, float]:
+        """คำนวณความสำคัญของแต่ละคุณลักษณะ"""
+        importances = {}
+        base_pred = model.predict(X_train)
+        
+        for i, col in enumerate(X_train.columns):
+            X_permuted = X_train.copy()
+            X_permuted[col] = np.random.permutation(X_permuted[col])
+            new_pred = model.predict(X_permuted)
+            importance = np.mean(np.abs(base_pred - new_pred))
+            importances[col] = float(importance)
+        
+        return importances 
