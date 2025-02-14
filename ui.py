@@ -1,3 +1,9 @@
+"""
+UI Manager for Excel Processor
+-----------------------------
+จัดการส่วน UI แยกออกจาก Business Logic
+"""
+
 import streamlit as st
 from streamlit_option_menu import option_menu
 from streamlit_extras.switch_page_button import switch_page
@@ -17,6 +23,7 @@ import os
 import time
 import logging
 from datetime import datetime, timedelta
+from typing import Dict, Any, Optional
 
 # ตั้งค่า logging
 logging.basicConfig(
@@ -25,17 +32,114 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 
-# ตั้งค่าหน้าเพจ
-st.set_page_config(
-    page_title="Excel Processor - ระบบประมวลผล Excel อัจฉริยะ",
-    page_icon="📊",
-    layout="wide",
-    initial_sidebar_state="expanded"
-)
+class UIManager:
+    """จัดการส่วน UI แยกจาก Business Logic"""
+    
+    def __init__(self):
+        """กำหนดค่าเริ่มต้น UI"""
+        self._setup_page_config()
+        self._init_session_state()
+        
+    def _setup_page_config(self):
+        """ตั้งค่าหน้าเพจ"""
+        st.set_page_config(
+            page_title="Excel Processor - ระบบประมวลผล Excel อัจฉริยะ",
+            page_icon="📊",
+            layout="wide",
+            initial_sidebar_state="expanded"
+        )
+        
+    def _init_session_state(self):
+        """กำหนดค่าเริ่มต้น session state"""
+        if 'theme' not in st.session_state:
+            st.session_state.theme = 'light'
+            
+    def render_sidebar(self):
+        """แสดง sidebar"""
+        with st.sidebar:
+            selected = option_menu(
+                "เมนูหลัก",
+                ["หน้าแรก", "อัปโหลดไฟล์", "AI Analysis", "รายงาน", "การตั้งค่า", "เกี่ยวกับ"],
+                icons=['house', 'upload', 'robot', 'graph-up', 'gear', 'info-circle'],
+                menu_icon="list",
+                default_index=0,
+                styles={
+                    "container": {"padding": "5!important", "background-color": ('#ffffff' if st.session_state.theme == 'light' else '#2d2d2d')},
+                    "icon": {"color": "orange", "font-size": "25px"}, 
+                    "nav-link": {"font-size": "16px", "text-align": "left", "margin":"0px"},
+                    "nav-link-selected": {"background-color": "#4CAF50"},
+                }
+            )
+        return selected
+        
+    def render_upload_form(self) -> Optional[Dict[str, Any]]:
+        """แสดงฟอร์มอัปโหลด"""
+        with st.form("upload_form"):
+            file = st.file_uploader("เลือกไฟล์ Excel", type=["xlsx", "xls"])
+            name = st.text_input("ชื่อเทมเพลต")
+            description = st.text_area("คำอธิบาย")
+            submitted = st.form_submit_button("อัปโหลด")
+            
+            if submitted and file and name:
+                return {
+                    "file": file,
+                    "name": name,
+                    "description": description
+                }
+        return None
+        
+    def render_template_list(self, templates: list):
+        """แสดงรายการเทมเพลต"""
+        st.header("เทมเพลตทั้งหมด")
+        
+        for template in templates:
+            with st.expander(f"📄 {template['name']}", expanded=False):
+                st.write(f"**คำอธิบาย:** {template['description']}")
+                st.write(f"**สร้างเมื่อ:** {template['created_at']}")
+                
+                col1, col2 = st.columns(2)
+                with col1:
+                    if st.button("แก้ไข", key=f"edit_{template['id']}"):
+                        return {"action": "edit", "template_id": template['id']}
+                with col2:
+                    if st.button("ดูตัวอย่าง", key=f"preview_{template['id']}"):
+                        return {"action": "preview", "template_id": template['id']}
+                        
+        return None
+        
+    def render_preview(self, preview_data: Dict[str, Any]):
+        """แสดงตัวอย่างเทมเพลต"""
+        st.header("ตัวอย่างเทมเพลต")
+        st.dataframe(preview_data)
+        
+    def show_success(self, message: str):
+        """แสดงข้อความสำเร็จ"""
+        st.success(message)
+        
+    def show_error(self, message: str):
+        """แสดงข้อความผิดพลาด"""
+        st.error(message)
 
-# โหลดการตั้งค่าธีม
-if 'theme' not in st.session_state:
-    st.session_state.theme = 'light'
+# สร้าง instance ของ UIManager
+ui_manager = UIManager()
+
+def main():
+    """ฟังก์ชันหลักของแอพพลิเคชัน"""
+    selected = ui_manager.render_sidebar()
+    
+    if selected == "หน้าแรก":
+        st.title("ยินดีต้อนรับสู่ Excel Processor")
+        st.write("ระบบประมวลผล Excel อัจฉริยะ พร้อมระบบ AI วิเคราะห์และจัดการเทมเพลตอัตโนมัติ")
+        
+    elif selected == "อัปโหลดไฟล์":
+        st.title("อัปโหลดไฟล์")
+        upload_data = ui_manager.render_upload_form()
+        if upload_data:
+            # เรียกใช้ business logic
+            pass
+
+if __name__ == "__main__":
+    main()
 
 # สร้าง instance ของ managers
 if 'processor' not in st.session_state:
@@ -85,29 +189,6 @@ st.markdown(f"""
     }}
 </style>
 """, unsafe_allow_html=True)
-
-# สร้างเมนูด้านข้าง
-with st.sidebar:
-    selected = option_menu(
-        "เมนูหลัก",
-        ["หน้าแรก", "อัปโหลดไฟล์", "AI Analysis", "รายงาน", "การตั้งค่า", "เกี่ยวกับ"],
-        icons=['house', 'upload', 'robot', 'graph-up', 'gear', 'info-circle'],
-        menu_icon="list",
-        default_index=0,
-        styles={
-            "container": {"padding": "5!important", "background-color": ('#ffffff' if st.session_state.theme == 'light' else '#2d2d2d')},
-            "icon": {"color": "orange", "font-size": "25px"}, 
-            "nav-link": {"font-size": "16px", "text-align": "left", "margin":"0px"},
-            "nav-link-selected": {"background-color": "#4CAF50"},
-        }
-    )
-    
-    # สวิตช์เปลี่ยนธีม
-    theme_switch = st.checkbox("โหมดกลางคืน", value=(st.session_state.theme == 'dark'))
-    if theme_switch:
-        st.session_state.theme = 'dark'
-    else:
-        st.session_state.theme = 'light'
 
 # แสดงหน้าตามที่เลือก
 if selected == "หน้าแรก":

@@ -8,38 +8,59 @@ import pandas as pd
 from datetime import datetime
 import json
 import logging
-from typing import Dict, List, Any, Optional, Union
+from typing import Dict, List, Any, Optional, Union, TypedDict
 from openpyxl import Workbook
 from pathlib import Path
 import shutil
 from Levenshtein import distance
 from fuzzywuzzy import fuzz
 
+class TemplateMetadata(TypedDict):
+    """Type definition สำหรับ metadata ของเทมเพลต"""
+    name: str
+    description: str
+    created_at: str
+    
+class TemplateInfo(TypedDict):
+    """Type definition สำหรับข้อมูลเทมเพลต"""
+    id: str
+    name: str
+    description: str
+    created_at: str
+    path: str
+    score: Optional[float]
+
 class TemplateManager:
     """คลาสสำหรับจัดการเทมเพลต Excel"""
     
-    def __init__(self):
-        """กำหนดค่าเริ่มต้น"""
-        self.templates_dir = Path("templates")
+    def __init__(self, templates_dir: Optional[Path] = None) -> None:
+        """
+        กำหนดค่าเริ่มต้น
+        
+        Args:
+            templates_dir: ไดเรกทอรีสำหรับเก็บเทมเพลต
+        """
+        self.templates_dir: Path = templates_dir or Path("templates")
         self.templates_dir.mkdir(exist_ok=True)
-        self.metadata_file = self.templates_dir / "metadata.json"
+        self.metadata_file: Path = self.templates_dir / "metadata.json"
+        self.metadata: Dict[str, TemplateMetadata] = {}
         self.load_metadata()
         
-    def load_metadata(self):
+    def load_metadata(self) -> None:
         """โหลดข้อมูล metadata ของเทมเพลต"""
         if self.metadata_file.exists():
             with open(self.metadata_file, 'r', encoding='utf-8') as f:
                 self.metadata = json.load(f)
-        else:
+                else:
             self.metadata = {}
             self.save_metadata()
             
-    def save_metadata(self):
+    def save_metadata(self) -> None:
         """บันทึกข้อมูล metadata ของเทมเพลต"""
         with open(self.metadata_file, 'w', encoding='utf-8') as f:
             json.dump(self.metadata, f, ensure_ascii=False, indent=2)
             
-    def add_template(self, name: str, description: str, file_path: str) -> bool:
+    def add_template(self, name: str, description: str, file_path: Union[str, Path]) -> bool:
         """
         เพิ่มเทมเพลตใหม่
         
@@ -50,9 +71,14 @@ class TemplateManager:
             
         Returns:
             bool: True ถ้าเพิ่มสำเร็จ False ถ้าไม่สำเร็จ
+            
+        Raises:
+            FileNotFoundError: ถ้าไม่พบไฟล์เทมเพลต
+            PermissionError: ถ้าไม่มีสิทธิ์เข้าถึงไฟล์
         """
-        if not os.path.exists(file_path):
-            return False
+        file_path = Path(file_path)
+        if not file_path.exists():
+            raise FileNotFoundError(f"ไม่พบไฟล์: {file_path}")
             
         template_id = str(len(self.metadata) + 1)
         dest_path = self.templates_dir / f"{template_id}.xlsx"
@@ -70,7 +96,7 @@ class TemplateManager:
             logging.error(f"เกิดข้อผิดพลาดในการเพิ่มเทมเพลต: {e}")
             return False
             
-    def get_template(self, template_id: str) -> Optional[Dict[str, Any]]:
+    def get_template(self, template_id: str) -> Optional[TemplateInfo]:
         """
         ดึงข้อมูลเทมเพลต
         
@@ -78,7 +104,7 @@ class TemplateManager:
             template_id: รหัสเทมเพลต
             
         Returns:
-            Dict หรือ None: ข้อมูลเทมเพลตหรือ None ถ้าไม่พบ
+            TemplateInfo หรือ None: ข้อมูลเทมเพลตหรือ None ถ้าไม่พบ
         """
         if template_id not in self.metadata:
             return None
@@ -87,31 +113,36 @@ class TemplateManager:
         if not template_path.exists():
             return None
             
+        template_data = self.metadata[template_id]
         return {
-            **self.metadata[template_id],
-            "path": str(template_path)
+            "id": template_id,
+            **template_data,
+            "path": str(template_path),
+            "score": None
         }
         
-    def search_templates(self, query: str) -> List[Dict[str, Any]]:
+    def search_templates(self, query: str, threshold: float = 60.0) -> List[TemplateInfo]:
         """
         ค้นหาเทมเพลต
         
         Args:
             query: คำค้นหา
+            threshold: คะแนนขั้นต่ำสำหรับการจับคู่ (0-100)
             
         Returns:
-            List[Dict]: รายการเทมเพลตที่ตรงกับคำค้นหา
+            List[TemplateInfo]: รายการเทมเพลตที่ตรงกับคำค้นหา
         """
-        results = []
+        results: List[TemplateInfo] = []
         for template_id, data in self.metadata.items():
             name_score = fuzz.partial_ratio(query.lower(), data["name"].lower())
             desc_score = fuzz.partial_ratio(query.lower(), data["description"].lower())
             score = max(name_score, desc_score)
             
-            if score > 60:  # threshold สำหรับความเหมือน
+            if score > threshold:
                 results.append({
                     "id": template_id,
                     **data,
+                    "path": str(self.templates_dir / f"{template_id}.xlsx"),
                     "score": score
                 })
                 

@@ -21,12 +21,31 @@
 import os
 import pandas as pd
 import logging
-from typing import Dict, Any, Optional
+from typing import Dict, Any, Optional, List, Union
 from pathlib import Path
+import numpy as np
+import traceback
+from datetime import datetime
 
 # ตั้งค่า logging
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
+
+class ExcelProcessorError(Exception):
+    """Base class สำหรับ error ทั้งหมดใน ExcelProcessor"""
+    pass
+
+class FileNotSupportedError(ExcelProcessorError):
+    """Error สำหรับไฟล์ที่ไม่รองรับ"""
+    pass
+
+class DataValidationError(ExcelProcessorError):
+    """Error สำหรับข้อมูลที่ไม่ถูกต้อง"""
+    pass
+
+class ProcessingError(ExcelProcessorError):
+    """Error สำหรับการประมวลผลล้มเหลว"""
+    pass
 
 class ExcelProcessor:
     """
@@ -38,37 +57,46 @@ class ExcelProcessor:
     3. ปรับปรุงประสิทธิภาพ
     """
     
-    def __init__(self, file_path: str):
+    def __init__(self, file_path: Union[str, Path]) -> None:
         """
         กำหนดค่าเริ่มต้น
         
         Args:
             file_path: พาธของไฟล์ Excel
+            
+        Raises:
+            FileNotFoundError: ถ้าไม่พบไฟล์
+            FileNotSupportedError: ถ้าไฟล์ไม่ใช่ไฟล์ Excel
         """
         self.file_path = Path(file_path)
-        if not self.file_path.exists():
-            raise FileNotFoundError(f"ไม่พบไฟล์: {file_path}")
+        self.df: Optional[pd.DataFrame] = None
+        self.logger = logging.getLogger(__name__)
         
-        self.df = None  # DataFrame สำหรับเก็บข้อมูล
+        if not self.file_path.exists():
+            raise FileNotFoundError(f"ไม่พบไฟล์: {self.file_path}")
+            
+        if self.file_path.suffix not in ['.xlsx', '.xls']:
+            raise FileNotSupportedError(f"ไม่รองรับไฟล์นามสกุล: {self.file_path.suffix}")
+            
         self.processed_data = {}  # ข้อมูลที่ประมวลผลแล้ว
         
         logger.info(f"เริ่มต้นประมวลผลไฟล์: {file_path}")
     
     def load_file(self) -> None:
         """
-        โหลดไฟล์ Excel เข้า DataFrame
+        โหลดไฟล์ Excel
         
-        Tips สำหรับนักศึกษา:
-        - ใช้ pd.read_excel() สำหรับอ่านไฟล์
-        - ตรวจสอบ sheet_name ที่ต้องการ
-        - จัดการ NaN values
+        Raises:
+            ProcessingError: ถ้าโหลดไฟล์ไม่สำเร็จ
         """
         try:
             self.df = pd.read_excel(self.file_path)
-            logger.info(f"โหลดไฟล์สำเร็จ: {len(self.df)} แถว")
+            logger.info(f"โหลดไฟล์สำเร็จ: {self.file_path}")
         except Exception as e:
-            logger.error(f"เกิดข้อผิดพลาดในการโหลดไฟล์: {str(e)}")
-            raise
+            error_msg = f"เกิดข้อผิดพลาดในการโหลดไฟล์: {str(e)}"
+            self.logger.error(error_msg)
+            self.logger.debug(traceback.format_exc())
+            raise ProcessingError(error_msg)
     
     def extract_customer_info(self) -> Dict[str, Any]:
         """
@@ -101,38 +129,125 @@ class ExcelProcessor:
     
     def process_file(self) -> Dict[str, Any]:
         """
-        ประมวลผลไฟล์ทั้งหมด
+        ประมวลผลไฟล์ Excel
         
         Returns:
-            Dict[str, Any]: ผลลัพธ์การประมวลผล
-        
-        Tips สำหรับนักศึกษา:
-        - แบ่งการประมวลผลเป็นส่วนๆ
-        - เพิ่มการตรวจสอบข้อมูล
-        - สร้างรายงานสรุป
+            Dict[str, Any]: ผลการประมวลผล
+            
+        Raises:
+            ProcessingError: ถ้าประมวลผลไม่สำเร็จ
         """
         try:
-            if self.df is None:
-                self.load_file()
+            # โหลดและตรวจสอบข้อมูล
+            validation_results = self.validate_data()
             
             # ประมวลผลข้อมูล
-            customer_info = self.extract_customer_info()
-            
-            # สรุปผล
-            self.processed_data = {
-                "customer_info": customer_info,
-                "processed_data": self.df.to_dict(),
-                "summary": {
-                    "total_rows": len(self.df),
-                    "columns": list(self.df.columns)
-                }
+            results = {
+                "status": "success",
+                "validation": validation_results,
+                "statistics": self._calculate_statistics(),
+                "processed_at": datetime.now().isoformat()
             }
             
-            logger.info("ประมวลผลไฟล์สำเร็จ")
-            return self.processed_data
+            self.logger.info(f"ประมวลผลไฟล์สำเร็จ: {self.file_path}")
+            return results
+            
         except Exception as e:
-            logger.error(f"เกิดข้อผิดพลาดในการประมวลผล: {str(e)}")
-            raise
+            error_msg = f"เกิดข้อผิดพลาดในการประมวลผล: {str(e)}"
+            self.logger.error(error_msg)
+            self.logger.debug(traceback.format_exc())
+            raise ProcessingError(error_msg)
+    
+    def validate_data(self) -> Dict[str, Any]:
+        """
+        ตรวจสอบความถูกต้องของข้อมูล
+        
+        Returns:
+            Dict[str, Any]: ผลการตรวจสอบ
+            
+        Raises:
+            DataValidationError: ถ้าข้อมูลไม่ถูกต้อง
+        """
+        if self.df is None:
+            self.load_file()
+            
+        validation_results = {
+            "is_valid": True,
+            "errors": [],
+            "warnings": []
+        }
+        
+        try:
+            # ตรวจสอบค่าว่าง
+            null_counts = self.df.isnull().sum()
+            if null_counts.any():
+                validation_results["warnings"].append({
+                    "type": "null_values",
+                    "columns": null_counts[null_counts > 0].to_dict()
+                })
+                
+            # ตรวจสอบค่าซ้ำ
+            duplicates = self.df.duplicated()
+            if duplicates.any():
+                validation_results["warnings"].append({
+                    "type": "duplicates",
+                    "count": duplicates.sum()
+                })
+                
+            # ตรวจสอบประเภทข้อมูล
+            for column in self.df.columns:
+                try:
+                    if self.df[column].dtype == 'object':
+                        pd.to_numeric(self.df[column], errors='raise')
+                except:
+                    validation_results["warnings"].append({
+                        "type": "invalid_numeric",
+                        "column": column
+                    })
+                    
+            if len(validation_results["errors"]) > 0:
+                validation_results["is_valid"] = False
+                
+            return validation_results
+            
+        except Exception as e:
+            error_msg = f"เกิดข้อผิดพลาดในการตรวจสอบข้อมูล: {str(e)}"
+            self.logger.error(error_msg)
+            self.logger.debug(traceback.format_exc())
+            raise DataValidationError(error_msg)
+    
+    def _calculate_statistics(self) -> Dict[str, Any]:
+        """
+        คำนวณสถิติของข้อมูล
+        
+        Returns:
+            Dict[str, Any]: ข้อมูลสถิติ
+            
+        Raises:
+            ProcessingError: ถ้าคำนวณไม่สำเร็จ
+        """
+        try:
+            stats = {
+                "row_count": len(self.df),
+                "column_count": len(self.df.columns),
+                "numeric_columns": {}
+            }
+            
+            for column in self.df.select_dtypes(include=[np.number]).columns:
+                stats["numeric_columns"][column] = {
+                    "mean": self.df[column].mean(),
+                    "std": self.df[column].std(),
+                    "min": self.df[column].min(),
+                    "max": self.df[column].max()
+                }
+                
+            return stats
+            
+        except Exception as e:
+            error_msg = f"เกิดข้อผิดพลาดในการคำนวณสถิติ: {str(e)}"
+            self.logger.error(error_msg)
+            self.logger.debug(traceback.format_exc())
+            raise ProcessingError(error_msg)
     
     def save_template(self, output_path: str) -> None:
         """
@@ -244,68 +359,4 @@ class ExcelProcessor:
         }
         
         logger.info("วิเคราะห์ข้อมูลสำเร็จ")
-        return analysis_results
-
-    def validate_data(self) -> Dict[str, Any]:
-        """
-        ตรวจสอบความถูกต้องของข้อมูล
-        
-        Returns:
-            Dict[str, Any]: ผลการตรวจสอบ
-        
-        Tips สำหรับนักศึกษา:
-        - ตรวจสอบค่า null
-        - ตรวจสอบรูปแบบข้อมูล
-        - ตรวจสอบค่าที่ผิดปกติ
-        """
-        if self.df is None:
-            self.load_file()
-        
-        # ตรวจสอบค่า null
-        null_check = {
-            "missing_values": self.df.isnull().sum().to_dict(),
-            "missing_percentage": (self.df.isnull().sum() / len(self.df) * 100).to_dict()
-        }
-        
-        # ตรวจสอบค่าซ้ำ
-        duplicate_check = {
-            "duplicates": len(self.df[self.df.duplicated()]),
-            "duplicate_percentage": len(self.df[self.df.duplicated()]) / len(self.df) * 100
-        }
-        
-        # ตรวจสอบรูปแบบข้อมูล
-        data_types = {
-            col: str(dtype) for col, dtype in self.df.dtypes.items()
-        }
-        
-        # ตรวจสอบค่าที่ผิดปกติ (สำหรับคอลัมน์ตัวเลข)
-        outliers = {}
-        for col in self.df.select_dtypes(include=['int64', 'float64']).columns:
-            Q1 = self.df[col].quantile(0.25)
-            Q3 = self.df[col].quantile(0.75)
-            IQR = Q3 - Q1
-            outliers[col] = {
-                "outliers_count": len(self.df[(self.df[col] < (Q1 - 1.5 * IQR)) | (self.df[col] > (Q3 + 1.5 * IQR))]),
-                "min": float(self.df[col].min()),
-                "max": float(self.df[col].max()),
-                "mean": float(self.df[col].mean()),
-                "median": float(self.df[col].median())
-            }
-        
-        validation_results = {
-            "null_check": null_check,
-            "duplicate_check": duplicate_check,
-            "data_types": data_types,
-            "outliers": outliers,
-            "total_rows": len(self.df),
-            "total_columns": len(self.df.columns)
-        }
-        
-        # บันทึก log
-        logger.info(f"ตรวจสอบข้อมูลสำเร็จ: {len(self.df)} แถว")
-        if null_check["missing_values"]:
-            logger.warning(f"พบค่า null: {null_check['missing_values']}")
-        if duplicate_check["duplicates"]:
-            logger.warning(f"พบข้อมูลซ้ำ: {duplicate_check['duplicates']} แถว")
-        
-        return validation_results 
+        return analysis_results 
