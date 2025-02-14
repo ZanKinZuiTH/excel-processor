@@ -1,154 +1,157 @@
-# 📊 Excel Processor - Intelligent Excel Processing System
+# 🚀 Excel Processor
 
 [![Python Version](https://img.shields.io/badge/python-3.8%2B-blue)]()
-[![License](https://img.shields.io/badge/license-BRXG%20Co.-green)]()
+[![License](https://img.shields.io/badge/license-MIT-green)]()
 [![Tests](https://img.shields.io/badge/tests-passing-brightgreen)]()
+[![Discord](https://img.shields.io/badge/discord-join%20chat-7289da)]()
 
-## 📌 Table of Contents
-- [Key Features](#-key-features)
-- [Installation](#-installation)
-- [Usage](#-usage)
-- [Core Features](#-core-features)
-- [Project Structure](#-project-structure)
-- [Testing](#-testing)
-- [Future Development](#-future-development)
-- [Developers](#-developers)
+> Intelligent Excel Processing System with AI-powered Analysis and Template Management
 
-## ⭐ Key Features
-- 🚀 **Easy to Use**: Install and start using within 5 minutes
-- 🔄 **Automatic Processing**: Automated Excel data analysis
-- 🔍 **Data Validation**: Detect null values, duplicates, and outliers
-- 📊 **Deep Analysis**: Basic statistics, grouping, and trends
-- 🧹 **Data Cleaning**: Automatic handling of nulls and duplicates
-- 🌐 **Bilingual**: Thai/English support
-- ⚙️ **Customizable**: Flexible configuration options
-- 📱 **Responsive**: Works on both Desktop and Mobile
+[🇹🇭 Thai](README.md) | [🇺🇸 English](README_EN.md) | [🎮 Demo](README_DEMO.md)
 
-## 📥 Installation
-1. Install Python 3.8 or higher
+<p align="center">
+  <img src="docs/images/demo.gif" alt="Excel Processor Demo" width="600">
+</p>
+
+## 📑 Table of Contents
+- [✨ Key Features](#-key-features)
+- [🛠️ Installation](#️-installation)
+- [📖 Usage](#-usage)
+- [🔧 Configuration](#-configuration)
+- [📚 Documentation](#-documentation)
+
+## ✨ Key Features
+
+### 🎯 Template Management
+- Create and edit templates automatically
+- Share templates between users
+- Control template versions
+- AI-powered template recommendations
+
+### 📊 Data Processing
+- Automatic data structure analysis
+- Error detection and correction
+- Automatic data format conversion
+- Batch processing support
+
+### 🤖 AI Intelligence
+- Trend analysis with Prophet
+- Data forecasting with LSTM
+- Feature importance calculation
+- Automatic learning and improvement
+
+### 🖨️ Print System
+- Automatic print queue management
+- Batch printing support
+- Flexible printer selection
+- Automatic document formatting
+
+### 🌐 Web API & UI
+- Complete REST API
+- Beautiful UI with Streamlit
+- Async operation support
+- Real-time notification system
+
+### 🔒 Security System
+- JWT Authentication support
+- Access control management
+- Automatic data encryption
+- Attack prevention
+
+### 📈 Monitoring System
+- Resource usage tracking
+- Performance analysis
+- Threshold-based alerts
+- Automatic report generation
+
+## 🛠️ Installation
+
+1. Clone the project:
 ```bash
-# Download the project
-git clone https://github.com/BRXG/excel-processor.git
+git clone https://github.com/yourusername/excel-processor.git
 cd excel-processor
+```
 
-# Install dependencies
+2. Create Virtual Environment:
+```bash
+python -m venv venv
+source venv/bin/activate  # Linux/Mac
+venv\Scripts\activate     # Windows
+```
+
+3. Install Dependencies:
+```bash
 pip install -r requirements.txt
+```
 
-# Setup the system
+4. Setup the system:
+```bash
 python cli.py setup
 ```
 
-## 🚀 Usage
-### GUI (Streamlit)
+## 📖 Usage
+
+### 🖥️ Web Interface
+1. Start the system:
 ```bash
 python cli.py start
 ```
-Open your browser and navigate to http://localhost:8501
+2. Open your browser and navigate to `http://localhost:8501`
 
-### CLI
+### 💻 Command Line
 ```bash
 # Process a file
 python cli.py process input.xlsx
 
-# Run tests
-python cli.py test
+# Create template
+python cli.py template create
 
-# Check version
-python cli.py version
+# Analyze with AI
+python cli.py analyze data.xlsx
 ```
 
-## 🛠️ Core Features
+## 🔧 Configuration
 
-### 1. Data Processing
-```python
-from excel_processor import ExcelProcessor
-
-# Create instance
-processor = ExcelProcessor("data.xlsx")
-
-# Process data
-result = processor.process_file()
+### ⚙️ Basic Settings
+```env
+APP_NAME=Excel Template Manager
+APP_VERSION=1.0.0
+DEBUG=False
 ```
 
-### 2. Data Validation
-```python
-# Validate data
-validation = processor.validate_data()
-
-# View validation results
-print(f"Null values: {validation['null_check']}")
-print(f"Duplicates: {validation['duplicate_check']}")
-print(f"Outliers: {validation['outliers']}")
+### 🔐 Security Settings
+```env
+SECRET_KEY=your-secret-key
+ALGORITHM=HS256
+ACCESS_TOKEN_EXPIRE_MINUTES=30
 ```
 
-### 3. Data Analysis
-```python
-# Analyze data
-analysis = processor.analyze_data()
-
-# View analysis results
-print(f"Statistics: {analysis['numeric_stats']}")
-print(f"Grouping: {analysis['groupby_results']}")
+### 🗄️ Database Settings
+```env
+DATABASE_URL=sqlite:///./excel_data.db
 ```
 
-### 4. Data Cleaning
-```python
-# Clean data
-processor.clean_data()
-```
+## 📚 Documentation
 
-## 📁 Project Structure
-```
-excel_processor/
-├── processor.py     # Main processing system
-├── config.py        # System configuration
-├── security.py      # Security system
-├── ui.py            # User interface
-└── tests/           # Test suite
-```
+- [📘 User Guide](docs/user_guide.md)
+- [🔧 Installation Guide](docs/server_setup.md)
+- [📊 Presentation Guide](docs/presentation_guide.md)
+- [🧪 Testing Guide](docs/testing_guide.md)
 
-## 🧪 Testing
-```bash
-# Run all tests
-pytest tests/
+## 👥 Developer
 
-# Run tests with coverage report
-pytest tests/ --cov=./ --cov-report=xml
-```
-
-## 🔄 Future Development
-1. Add advanced data analytics
-2. Implement real-time reporting
-3. Develop external API services
-4. Add support for additional file formats
-5. Add automatic data pattern detection
-6. Develop data correction recommendations
-
-## 👨‍💻 Developers
-- BRXG Co. Development Team
-- Email: contact@brxg.co.th
-- Website: https://brxg.co.th
-
-## 📝 License
-Copyright © 2024 BRXG Co. All rights reserved.
-
-This software is proprietary and confidential. 
-Unauthorized copying of this file, via any medium is strictly prohibited.
-Written by BRXG Development Team <dev@brxg.co.th>, 2024
-
-## 📫 Support
-If you encounter issues or need assistance, contact us at:
-- 🐛 [GitHub Issues](https://github.com/BRXG/excel-processor/issues)
-- 📧 Email: support@brxg.co.th
-- 💬 Line Official: @brxgdev
+- **ZanKinZuiTH** - [GitHub](https://github.com/ZanKinZuiTH)
 
 ## 📄 License
 
 This project is licensed under the MIT License - see [LICENSE](LICENSE) for details
 
-## 👥 Developer
+## 📫 Support
 
-- **ZanKinZuiTH** - [GitHub](https://github.com/ZanKinZuiTH)
+If you encounter issues or need assistance:
+- 🐛 [GitHub Issues](https://github.com/ZanKinZuiTH/excel-processor/issues)
+- 📧 Email: support@brxg.co.th
+- 💬 Line Official: @brxgdev
 
 ---
 ⌨️ with ❤️ by [ZanKinZuiTH](https://github.com/ZanKinZuiTH) 

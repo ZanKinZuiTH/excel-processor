@@ -1,238 +1,266 @@
 # 🧪 คู่มือการทดสอบระบบ Excel Processor
 
-## 📋 สารบัญ
-1. [การเตรียมสภาพแวดล้อม](#การเตรียมสภาพแวดล้อม)
-2. [โครงสร้างการทดสอบ](#โครงสร้างการทดสอบ)
-3. [การรันทดสอบ](#การรันทดสอบ)
-4. [การเขียนการทดสอบ](#การเขียนการทดสอบ)
-5. [แนวทางการทดสอบที่ดี](#แนวทางการทดสอบที่ดี)
+## 📑 สารบัญ
+- [🚀 การเตรียมสภาพแวดล้อม](#-การเตรียมสภาพแวดล้อม)
+- [📊 การทดสอบระบบ Template](#-การทดสอบระบบ-template)
+- [🔍 การทดสอบการประมวลผลข้อมูล](#-การทดสอบการประมวลผลข้อมูล)
+- [🤖 การทดสอบระบบ AI](#-การทดสอบระบบ-ai)
+- [🖨️ การทดสอบระบบพิมพ์](#️-การทดสอบระบบพิมพ์)
+- [🔒 การทดสอบระบบความปลอดภัย](#-การทดสอบระบบความปลอดภัย)
+- [📈 การทดสอบระบบติดตาม](#-การทดสอบระบบติดตาม)
 
-## 🔧 การเตรียมสภาพแวดล้อม
+## 🚀 การเตรียมสภาพแวดล้อม
 
-### 1. ติดตั้ง Dependencies
+### การติดตั้ง Testing Framework
 ```bash
-# ติดตั้ง dependencies สำหรับการทดสอบ
-pip install -r requirements-dev.txt
+pip install pytest pytest-cov pytest-mock pytest-asyncio
 ```
 
-### 2. ตรวจสอบการติดตั้ง
+### การเตรียมข้อมูลทดสอบ
+1. สร้างโฟลเดอร์ `tests/data/`
+2. เตรียมไฟล์ทดสอบ:
+   - `sample_data.xlsx`
+   - `invalid_data.xlsx`
+   - `large_data.xlsx`
+
+### การรันเทสทั้งหมด
 ```bash
-# ตรวจสอบเวอร์ชัน pytest
-pytest --version
-
-# ตรวจสอบ plugins ที่ติดตั้ง
-pytest --trace-config
+pytest tests/ -v --cov=./ --cov-report=html
 ```
 
-## 📁 โครงสร้างการทดสอบ
+## 📊 การทดสอบระบบ Template
 
-```
-tests/
-├── conftest.py          # Shared fixtures
-├── test_processor.py    # Excel Processor tests
-├── test_template.py     # Template Manager tests
-└── data/               # Test data files
-```
-
-### Fixtures ที่มีให้ใช้
-1. `test_data_dir`: โฟลเดอร์ชั่วคราวสำหรับเก็บข้อมูลทดสอบ
-2. `sample_excel`: ไฟล์ Excel ตัวอย่างสำหรับทดสอบ
-3. `processor`: ExcelProcessor instance
-4. `template_manager`: TemplateManager instance
-5. `print_manager`: PrintManager instance
-
-## 🚀 การรันทดสอบ
-
-### 1. รันทดสอบทั้งหมด
-```bash
-pytest
-```
-
-### 2. รันเฉพาะบางประเภท
-```bash
-# Unit tests
-pytest -m unit
-
-# Integration tests
-pytest -m integration
-
-# Performance tests
-pytest -m performance
-
-# Async tests
-pytest -m async
-```
-
-### 3. รันแบบ Parallel
-```bash
-# ใช้ CPU ทุก core
-pytest -n auto
-
-# กำหนดจำนวน processes
-pytest -n 4
-```
-
-### 4. รันพร้อมดูความครอบคลุม
-```bash
-# ดูรายงานใน terminal
-pytest --cov
-
-# สร้างรายงาน HTML
-pytest --cov --cov-report=html
-```
-
-### 5. รันเฉพาะ Performance Tests
-```bash
-# รัน benchmark tests
-pytest --benchmark-only
-
-# บันทึกผล benchmark
-pytest --benchmark-autosave
-```
-
-## ✍️ การเขียนการทดสอบ
-
-### 1. การเขียน Unit Test พื้นฐาน
+### Unit Tests สำหรับ Template Manager
 ```python
-def test_process_excel_file(processor):
-    """ทดสอบการประมวลผลไฟล์ Excel พื้นฐาน"""
-    result = processor.process_file()
-    assert result['status'] == 'success'
-    assert 'data' in result
+def test_create_template():
+    template = TemplateManager()
+    result = template.create_template(name="Test", columns=["A", "B"])
+    assert result.name == "Test"
+    assert len(result.columns) == 2
+
+def test_validate_template():
+    template = TemplateManager()
+    is_valid = template.validate_template(data=sample_data)
+    assert is_valid == True
 ```
 
-### 2. การทดสอบ Async Functions
+### Integration Tests
 ```python
-@pytest.mark.asyncio
-async def test_async_processing(processor):
-    """ทดสอบการประมวลผลแบบ async"""
-    result = await processor.process_async()
-    assert result['status'] == 'success'
-```
-
-### 3. การทดสอบ Performance
-```python
-def test_performance(processor, benchmark):
-    """ทดสอบประสิทธิภาพการทำงาน"""
-    result = benchmark(processor.process_file)
-    assert result['status'] == 'success'
-    assert benchmark.stats.stats.mean < 1.0
-```
-
-### 4. การจัดการ Test Data
-```python
-def test_with_custom_data(processor, test_data_dir):
-    """ทดสอบด้วยข้อมูลที่กำหนดเอง"""
-    # สร้างข้อมูลทดสอบ
-    data = {
-        'รหัส': ['001', '002'],
-        'ชื่อ': ['ทดสอบ1', 'ทดสอบ2']
-    }
-    df = pd.DataFrame(data)
+def test_template_workflow():
+    # 1. สร้าง Template
+    template = create_test_template()
     
-    # บันทึกไฟล์
-    test_file = Path(test_data_dir) / 'custom.xlsx'
-    df.to_excel(test_file, index=False)
+    # 2. ใช้งานกับข้อมูล
+    processor = DataProcessor(template)
+    result = processor.process_data(test_data)
     
-    # ทดสอบ
-    processor.file_path = test_file
-    result = processor.process_file()
-    assert result['status'] == 'success'
+    # 3. ตรวจสอบผล
+    assert result.success == True
 ```
 
-## 💡 แนวทางการทดสอบที่ดี
+## 🔍 การทดสอบการประมวลผลข้อมูล
 
-### 1. การตั้งชื่อ Test Function
-- ใช้ชื่อที่อธิบายสิ่งที่ทดสอบ
-- เริ่มด้วย `test_`
-- ใช้ snake_case
+### การทดสอบการนำเข้าข้อมูล
 ```python
-def test_process_large_excel_file():
-def test_invalid_template_format():
-def test_concurrent_processing():
+def test_data_import():
+    processor = DataProcessor()
+    
+    # ทดสอบไฟล์ปกติ
+    result = processor.import_file("valid.xlsx")
+    assert result.success == True
+    
+    # ทดสอบไฟล์ไม่ถูกต้อง
+    with pytest.raises(InvalidFileError):
+        processor.import_file("invalid.xlsx")
 ```
 
-### 2. การใช้ Fixtures
-- ใช้ fixtures เพื่อลดการเขียนโค้ดซ้ำ
-- สร้าง fixtures ที่ใช้ร่วมกันใน conftest.py
-- กำหนด scope ให้เหมาะสม
+### การทดสอบการตรวจสอบข้อมูล
 ```python
-@pytest.fixture(scope="session")
-def large_excel_file(test_data_dir):
-    """สร้างไฟล์ Excel ขนาดใหญ่สำหรับทดสอบ"""
-    # สร้างข้อมูล
-    return file_path
+def test_data_validation():
+    validator = DataValidator()
+    
+    # ทดสอบค่าว่าง
+    nulls = validator.check_nulls(data)
+    assert len(nulls) == 0
+    
+    # ทดสอบข้อมูลซ้ำ
+    duplicates = validator.check_duplicates(data)
+    assert len(duplicates) == 0
 ```
 
-### 3. การจัดการ Test Data
-- แยกข้อมูลทดสอบออกจากโค้ด
-- ใช้ temporary files/directories
-- ทำความสะอาดหลังทดสอบเสร็จ
+## 🤖 การทดสอบระบบ AI
 
-### 4. การทดสอบ Error Cases
-- ทดสอบกรณีผิดพลาดต่างๆ
-- ใช้ pytest.raises ตรวจสอบ exceptions
+### การทดสอบ Prophet
 ```python
-def test_error_handling():
-    with pytest.raises(ValueError) as exc_info:
-        # ทำให้เกิด error
-    assert "error message" in str(exc_info.value)
+def test_prophet_analysis():
+    analyzer = TrendAnalyzer()
+    
+    # ทดสอบการวิเคราะห์
+    forecast = analyzer.analyze_trend(data, period=30)
+    assert len(forecast) == 30
+    assert "yhat" in forecast.columns
 ```
 
-### 5. การใช้ Markers
-- ใช้ markers แยกประเภทการทดสอบ
-- กำหนด markers ใน pytest.ini
+### การทดสอบ LSTM
 ```python
-@pytest.mark.slow
-@pytest.mark.integration
-def test_large_file_processing():
+def test_lstm_prediction():
+    predictor = LSTMPredictor()
+    
+    # ทดสอบการเทรน
+    model = predictor.train(train_data, epochs=10)
+    assert model.trained == True
+    
+    # ทดสอบการพยากรณ์
+    prediction = predictor.predict(test_data)
+    assert len(prediction) > 0
 ```
 
-## 🔍 การแก้ไขปัญหาที่พบบ่อย
+## 🖨️ การทดสอบระบบพิมพ์
 
-### 1. การทดสอบไม่ผ่าน
-- ตรวจสอบ test data
-- ดู log ในโหมด verbose: `pytest -v`
-- ใช้ pytest-sugar ดูผลแบบสวยงาม
+### การทดสอบการตั้งค่าเครื่องพิมพ์
+```python
+def test_printer_setup():
+    printer = PrinterManager()
+    
+    # ทดสอบการตั้งค่า
+    config = printer.setup(name="Test", paper_size="A4")
+    assert config.name == "Test"
+    assert config.paper_size == "A4"
+```
 
-### 2. การทดสอบช้า
-- ใช้ parallel testing
-- แยก slow tests ด้วย markers
-- ใช้ pytest-xdist
+### การทดสอบการพิมพ์
+```python
+def test_print_document():
+    printer = PrinterManager()
+    
+    # ทดสอบการพิมพ์
+    job = printer.print_document(doc="test.pdf", copies=2)
+    assert job.status == "completed"
+    assert job.copies == 2
+```
 
-### 3. Memory Issues
-- ใช้ fixtures แบบ function scope
-- ทำความสะอาดข้อมูลหลังทดสอบ
-- ระวังการสร้างข้อมูลขนาดใหญ่
+## 🔒 การทดสอบระบบความปลอดภัย
 
-## 📊 การวิเคราะห์ผลการทดสอบ
+### การทดสอบการยืนยันตัวตน
+```python
+def test_authentication():
+    auth = AuthManager()
+    
+    # ทดสอบการล็อกอิน
+    token = auth.login(username="test", password="pass")
+    assert token is not None
+    
+    # ทดสอบการตรวจสอบโทเคน
+    is_valid = auth.verify_token(token)
+    assert is_valid == True
+```
 
-### 1. Coverage Report
+### การทดสอบการเข้ารหัส
+```python
+def test_encryption():
+    crypto = CryptoManager()
+    
+    # ทดสอบการเข้ารหัส
+    encrypted = crypto.encrypt(data="test")
+    assert encrypted != "test"
+    
+    # ทดสอบการถอดรหัส
+    decrypted = crypto.decrypt(encrypted)
+    assert decrypted == "test"
+```
+
+## 📈 การทดสอบระบบติดตาม
+
+### การทดสอบการติดตามทรัพยากร
+```python
+def test_resource_monitoring():
+    monitor = ResourceMonitor()
+    
+    # ทดสอบการติดตาม CPU
+    cpu_usage = monitor.get_cpu_usage()
+    assert 0 <= cpu_usage <= 100
+    
+    # ทดสอบการติดตาม RAM
+    ram_usage = monitor.get_ram_usage()
+    assert ram_usage > 0
+```
+
+### การทดสอบการแจ้งเตือน
+```python
+def test_alerts():
+    alerter = AlertManager()
+    
+    # ทดสอบการสร้างการแจ้งเตือน
+    alert = alerter.create_alert(
+        type="cpu_high",
+        threshold=90
+    )
+    assert alert.active == True
+    
+    # ทดสอบการส่งการแจ้งเตือน
+    notification = alerter.send_alert(alert)
+    assert notification.sent == True
+```
+
+## 📊 การวัดความครอบคลุมของการทดสอบ
+
+### การรันเทสพร้อมรายงาน
 ```bash
-# สร้างรายงาน HTML
-pytest --cov --cov-report=html
-
-# ดูส่วนที่ยังไม่ได้ทดสอบ
-pytest --cov-report=term-missing
+pytest --cov=./ --cov-report=html
 ```
 
-### 2. Performance Report
+### เป้าหมายความครอบคลุม
+- Unit Tests: > 90%
+- Integration Tests: > 80%
+- End-to-End Tests: > 70%
+
+### การตรวจสอบคุณภาพโค้ด
 ```bash
-# ดูผล benchmark
-pytest --benchmark-only --benchmark-sort=mean
+# ตรวจสอบ Code Style
+flake8 ./
 
-# เปรียบเทียบกับครั้งก่อน
-pytest --benchmark-compare
+# ตรวจสอบ Type Hints
+mypy ./
+
+# ตรวจสอบความซับซ้อน
+radon cc ./
 ```
 
-## 🤝 การสนับสนุน
+## 🔄 การทดสอบอัตโนมัติ
 
-### การรายงานปัญหา
-- สร้าง issue ใน GitHub
-- แนบ log การทดสอบ
-- อธิบายขั้นตอนที่ทำให้เกิดปัญหา
+### การตั้งค่า CI/CD
+```yaml
+name: Tests
 
-### การขอความช่วยเหลือ
-- Discord: [ลิงก์]
-- GitHub Discussions
-- Email: support@example.com 
+on: [push, pull_request]
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v2
+      - name: Set up Python
+        uses: actions/setup-python@v2
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+      - name: Run tests
+        run: pytest
+```
+
+### การรันเทสอัตโนมัติ
+```bash
+# ทดสอบก่อน Commit
+pre-commit run --all-files
+
+# ทดสอบก่อน Push
+git push origin main
+```
+
+---
+
+## 📝 การรายงานข้อผิดพลาด
+
+หากพบข้อผิดพลาดในการทดสอบ กรุณาแจ้งผ่าน:
+1. สร้าง Issue ใน GitHub
+2. แจ้งทีมพัฒนาที่ support@brxg.co.th
+3. แจ้งผ่าน Line: @brxgdev 

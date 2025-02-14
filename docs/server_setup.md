@@ -81,8 +81,16 @@ Set-Service -Name "ExcelProcessor" -StartupType Automatic
 # ติดตั้ง IIS
 Install-WindowsFeature -Name Web-Server -IncludeManagementTools
 
-# ตั้งค่า Reverse Proxy
-# (ดูรายละเอียดในส่วน IIS Configuration)
+# ตั้งค่า URL Rewrite
+Install-Module -Name IISAdministration
+Import-Module IISAdministration
+
+# ตั้งค่า Application Pool
+New-IISAppPool -Name "ExcelProcessor"
+Set-IISAppPool -Name "ExcelProcessor" -ManagedRuntimeVersion "v4.0"
+
+# ตั้งค่า Website
+New-IISWebsite -Name "ExcelProcessor" -PhysicalPath "C:\Apps\excel-processor" -BindingInformation "*:80:"
 ```
 
 ## 🐧 การติดตั้งบน Linux Server
@@ -142,6 +150,14 @@ server {
         proxy_pass http://localhost:8000;
         proxy_set_header Host $host;
         proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+    }
+
+    location /static/ {
+        alias /opt/excel-processor/static/;
+        expires 30d;
+        add_header Cache-Control "public, no-transform";
     }
 }
 
@@ -163,6 +179,8 @@ docker run -d \
   --name excel-processor \
   -p 8000:8000 \
   -v /data:/app/data \
+  -v /templates:/app/templates \
+  --restart unless-stopped \
   excel-processor:latest
 ```
 
@@ -178,18 +196,29 @@ services:
       - "8000:8000"
     volumes:
       - ./data:/app/data
+      - ./templates:/app/templates
     environment:
       - DATABASE_URL=sqlite:///data/excel_data.db
-    restart: always
+      - SECRET_KEY=${SECRET_KEY}
+      - DEBUG=false
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
 
   nginx:
     image: nginx:alpine
     ports:
       - "80:80"
+      - "443:443"
     volumes:
       - ./nginx.conf:/etc/nginx/conf.d/default.conf
+      - ./ssl:/etc/nginx/ssl
     depends_on:
       - app
+    restart: unless-stopped
 ```
 
 ### 3. Deploy ด้วย Docker Swarm
@@ -199,11 +228,15 @@ docker swarm init
 
 # Deploy stack
 docker stack deploy -c docker-compose.yml excel-processor
+
+# Scale services
+docker service scale excel-processor_app=3
 ```
 
 ## ☸️ การติดตั้งบน Kubernetes
 
 ### 1. สร้าง Kubernetes Manifests
+
 ```yaml
 # deployment.yaml
 apiVersion: apps/v1
@@ -225,13 +258,36 @@ spec:
         image: excel-processor:latest
         ports:
         - containerPort: 8000
+        resources:
+          requests:
+            memory: "512Mi"
+            cpu: "250m"
+          limits:
+            memory: "1Gi"
+            cpu: "500m"
         volumeMounts:
         - name: data
           mountPath: /app/data
+        - name: templates
+          mountPath: /app/templates
+        env:
+        - name: DATABASE_URL
+          valueFrom:
+            configMapKeyRef:
+              name: excel-processor-config
+              key: database_url
+        - name: SECRET_KEY
+          valueFrom:
+            secretKeyRef:
+              name: excel-processor-secrets
+              key: secret_key
       volumes:
       - name: data
         persistentVolumeClaim:
-          claimName: excel-processor-pvc
+          claimName: excel-processor-data-pvc
+      - name: templates
+        persistentVolumeClaim:
+          claimName: excel-processor-templates-pvc
 
 ---
 # service.yaml
@@ -246,21 +302,36 @@ spec:
     targetPort: 8000
   selector:
     app: excel-processor
-```
 
-### 2. Deploy บน Kubernetes
-```bash
-# Apply manifests
-kubectl apply -f k8s/
-
-# ตรวจสอบสถานะ
-kubectl get pods
-kubectl get services
+---
+# ingress.yaml
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: excel-processor
+  annotations:
+    nginx.ingress.kubernetes.io/ssl-redirect: "true"
+spec:
+  tls:
+  - hosts:
+    - excel-processor.example.com
+    secretName: excel-processor-tls
+  rules:
+  - host: excel-processor.example.com
+    http:
+      paths:
+      - path: /
+        pathType: Prefix
+        backend:
+          service:
+            name: excel-processor
+            port:
+              number: 80
 ```
 
 ## 🔒 การตั้งค่าความปลอดภัย
 
-### 1. Firewall Rules
+### 1. การตั้งค่า Firewall
 ```bash
 # Windows (PowerShell)
 New-NetFirewallRule -DisplayName "Excel Processor" -Direction Inbound -Action Allow -Protocol TCP -LocalPort 80,443
@@ -270,27 +341,36 @@ sudo ufw allow 80/tcp
 sudo ufw allow 443/tcp
 ```
 
-### 2. SSL/TLS Configuration
-```nginx
-# Nginx SSL config
+### 2. การตั้งค่า SSL/TLS
+```bash
+# ตั้งค่า SSL ใน Nginx
 server {
-    listen 443 ssl;
+    listen 443 ssl http2;
     server_name your_domain.com;
 
-    ssl_certificate /etc/letsencrypt/live/your_domain.com/fullchain.pem;
-    ssl_certificate_key /etc/letsencrypt/live/your_domain.com/privkey.pem;
-    
+    ssl_certificate /etc/nginx/ssl/certificate.crt;
+    ssl_certificate_key /etc/nginx/ssl/private.key;
     ssl_protocols TLSv1.2 TLSv1.3;
     ssl_ciphers HIGH:!aNULL:!MD5;
-    
-    # HSTS
-    add_header Strict-Transport-Security "max-age=31536000" always;
+    ssl_prefer_server_ciphers on;
+    ssl_session_cache shared:SSL:10m;
+    ssl_session_timeout 10m;
 }
+```
+
+### 3. การตั้งค่า Security Headers
+```nginx
+# เพิ่ม Security Headers ใน Nginx
+add_header X-Frame-Options "SAMEORIGIN";
+add_header X-XSS-Protection "1; mode=block";
+add_header X-Content-Type-Options "nosniff";
+add_header Strict-Transport-Security "max-age=31536000";
+add_header Content-Security-Policy "default-src 'self'";
 ```
 
 ## 📊 การ Monitor ระบบ
 
-### 1. ตั้งค่า Prometheus
+### 1. การตั้งค่า Prometheus
 ```yaml
 # prometheus.yml
 global:
@@ -302,7 +382,7 @@ scrape_configs:
       - targets: ['localhost:8000']
 ```
 
-### 2. ตั้งค่า Grafana Dashboard
+### 2. การตั้งค่า Grafana Dashboard
 ```bash
 # ติดตั้ง Grafana
 docker run -d \
@@ -311,20 +391,23 @@ docker run -d \
   grafana/grafana
 ```
 
-### 3. ตั้งค่า Alert Manager
+### 3. การตั้งค่า Alert Manager
 ```yaml
 # alertmanager.yml
 route:
   group_by: ['alertname']
+  group_wait: 30s
+  group_interval: 5m
+  repeat_interval: 1h
   receiver: 'email-notifications'
 
 receivers:
 - name: 'email-notifications'
   email_configs:
-  - to: 'admin@your_domain.com'
+  - to: 'admin@example.com'
 ```
 
-## ❗ การแก้ไขปัญหา
+## 🔧 การแก้ไขปัญหา
 
 ### 1. ตรวจสอบ Logs
 ```bash
@@ -332,78 +415,30 @@ receivers:
 Get-EventLog -LogName Application -Source "Excel Processor"
 
 # Linux
-journalctl -u excel-processor
-
-# Docker
-docker logs excel-processor
-
-# Kubernetes
-kubectl logs deployment/excel-processor
+journalctl -u excel-processor.service
 ```
 
-### 2. ปัญหาที่พบบ่อย
-1. **Connection Refused**
-   - ตรวจสอบ Firewall
-   - ตรวจสอบ Service Status
-   - ตรวจสอบ Port Binding
-
-2. **SSL Certificate Issues**
-   - ตรวจสอบวันหมดอายุ
-   - ตรวจสอบ Path ของ Certificate
-   - ตรวจสอบ Permission
-
-3. **Performance Issues**
-   - ตรวจสอบ Resource Usage
-   - ตรวจสอบ Database Connection
-   - พิจารณาเพิ่ม Cache
-
-### 3. Backup และ Recovery
+### 2. ตรวจสอบ Performance
 ```bash
-# Backup Database
-pg_dump -U username dbname > backup.sql
+# ตรวจสอบการใช้งาน CPU และ Memory
+top -p $(pgrep -f "excel-processor")
 
-# Backup Configuration
-tar -czf config_backup.tar.gz /etc/excel-processor/
-
-# Recovery
-pg_restore -U username -d dbname backup.sql
+# ตรวจสอบ Disk Usage
+df -h /opt/excel-processor
 ```
 
-## 📚 แหล่งข้อมูลเพิ่มเติม
+### 3. การ Backup และ Restore
+```bash
+# Backup
+tar -czf backup.tar.gz /opt/excel-processor/data
 
-### Documentation
-- [Python Documentation](https://docs.python.org/)
-- [Docker Documentation](https://docs.docker.com/)
-- [Kubernetes Documentation](https://kubernetes.io/docs/)
-- [Nginx Documentation](https://nginx.org/en/docs/)
+# Restore
+tar -xzf backup.tar.gz -C /opt/excel-processor/
+```
 
-### Community
-- [GitHub Issues](https://github.com/your-repo/issues)
-- [Stack Overflow](https://stackoverflow.com/questions/tagged/excel-processor)
-- [Discord Community](https://discord.gg/excel-processor)
+## 📞 การติดต่อสนับสนุน
 
-### Video Tutorials
-1. [การติดตั้งบน Windows Server](https://youtube.com/...)
-2. [การติดตั้งบน Linux](https://youtube.com/...)
-3. [การใช้งาน Docker](https://youtube.com/...)
-4. [การ Deploy บน Kubernetes](https://youtube.com/...)
-
-## 🎓 สำหรับนักศึกษา
-
-### การเรียนรู้เพิ่มเติม
-1. ศึกษาการทำงานของ Web Server
-2. เรียนรู้เรื่อง Container และ Orchestration
-3. ทำความเข้าใจเรื่อง Security Best Practices
-4. ฝึกการ Monitor และ Debug ระบบ
-
-### แบบฝึกหัด
-1. ติดตั้งระบบบน VM ในเครื่องตัวเอง
-2. ทดลองใช้ Docker Compose
-3. สร้าง Monitoring Dashboard
-4. ทดสอบ Backup และ Recovery
-
-### Tips สำหรับการสอบ
-1. เข้าใจขั้นตอนการ Deploy ทั้งหมด
-2. รู้วิธีแก้ปัญหาพื้นฐาน
-3. สามารถอธิบายความแตกต่างของแต่ละวิธีการ Deploy
-4. เข้าใจเรื่องความปลอดภัยและการ Monitor
+หากพบปัญหาในการติดตั้งหรือใช้งาน สามารถติดต่อได้ที่:
+- 📧 Email: support@brxg.co.th
+- 💬 Line: @brxgdev
+- �� โทร: 02-XXX-XXXX 
