@@ -1,7 +1,5 @@
 """
-UI Manager for Excel Processor
------------------------------
-จัดการส่วน UI แยกออกจาก Business Logic
+ระบบส่วนติดต่อผู้ใช้สำหรับ Excel Processor
 """
 
 import streamlit as st
@@ -33,110 +31,324 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 
 class UIManager:
-    """จัดการส่วน UI แยกจาก Business Logic"""
+    """จัดการส่วนติดต่อผู้ใช้"""
     
     def __init__(self):
-        """กำหนดค่าเริ่มต้น UI"""
+        """กำหนดค่าเริ่มต้น"""
         self._setup_page_config()
         self._init_session_state()
+        
+        # สร้าง instances ของระบบต่างๆ
+        self.template_manager = TemplateManager()
+        self.dicom_viewer = DicomViewer(Path("DicomModule/PacsViewer"))
+        self.dicom_integration = DicomIntegration(Path("DicomModule/PacsViewer"))
+        self.dicom_monitor = DicomMonitor(Path("monitoring"))
+        self.dicom_security = DicomSecurity(Path("security/config.json"))
         
     def _setup_page_config(self):
         """ตั้งค่าหน้าเพจ"""
         st.set_page_config(
-            page_title="Excel Processor - ระบบประมวลผล Excel อัจฉริยะ",
+            page_title="Excel Processor & DICOM Viewer",
             page_icon="📊",
             layout="wide",
             initial_sidebar_state="expanded"
         )
         
+        # ใช้ CSS เพื่อปรับแต่งการแสดงผล
+        st.markdown("""
+        <style>
+        .main {
+            padding: 0rem 1rem;
+        }
+        .stButton>button {
+            width: 100%;
+        }
+        .stSelectbox {
+            margin-bottom: 1rem;
+        }
+        .reportview-container {
+            margin-top: -2rem;
+        }
+        .css-1d391kg {
+            padding: 1rem 1rem;
+        }
+        .stProgress .st-bo {
+            background-color: #1f77b4;
+        }
+        </style>
+        """, unsafe_allow_html=True)
+        
     def _init_session_state(self):
-        """กำหนดค่าเริ่มต้น session state"""
-        if 'theme' not in st.session_state:
-            st.session_state.theme = 'light'
+        """กำหนดค่าเริ่มต้นสำหรับ session state"""
+        if 'active_tab' not in st.session_state:
+            st.session_state.active_tab = "หน้าหลัก"
             
     def render_sidebar(self):
-        """แสดง sidebar"""
+        """แสดงเมนูด้านข้าง"""
         with st.sidebar:
+            st.image("assets/logo.png", width=200)
+            
             selected = option_menu(
                 "เมนูหลัก",
-                ["หน้าแรก", "อัปโหลดไฟล์", "AI Analysis", "รายงาน", "การตั้งค่า", "เกี่ยวกับ"],
-                icons=['house', 'upload', 'robot', 'graph-up', 'gear', 'info-circle'],
-                menu_icon="list",
+                ["หน้าหลัก", "จัดการเทมเพลต", "DICOM Viewer", "ประมวลผลข้อมูล", 
+                 "ระบบความปลอดภัย", "ติดตามการใช้งาน"],
+                icons=['house', 'file-earmark-text', 'image', 'gear', 
+                       'shield-lock', 'graph-up'],
+                menu_icon="cast",
                 default_index=0,
-                styles={
-                    "container": {"padding": "5!important", "background-color": ('#ffffff' if st.session_state.theme == 'light' else '#2d2d2d')},
-                    "icon": {"color": "orange", "font-size": "25px"}, 
-                    "nav-link": {"font-size": "16px", "text-align": "left", "margin":"0px"},
-                    "nav-link-selected": {"background-color": "#4CAF50"},
-                }
             )
-        return selected
-        
-    def render_upload_form(self) -> Optional[Dict[str, Any]]:
-        """แสดงฟอร์มอัปโหลด"""
-        with st.form("upload_form"):
-            file = st.file_uploader("เลือกไฟล์ Excel", type=["xlsx", "xls"])
-            name = st.text_input("ชื่อเทมเพลต")
-            description = st.text_area("คำอธิบาย")
-            submitted = st.form_submit_button("อัปโหลด")
             
-            if submitted and file and name:
-                return {
-                    "file": file,
-                    "name": name,
-                    "description": description
-                }
-        return None
+            st.session_state.active_tab = selected
+            
+    def render_main_page(self):
+        """แสดงหน้าหลัก"""
+        st.title("🏠 ยินดีต้อนรับสู่ Excel Processor & DICOM Viewer")
         
-    def render_template_list(self, templates: list):
-        """แสดงรายการเทมเพลต"""
-        st.header("เทมเพลตทั้งหมด")
+        # แสดงสถานะระบบ
+        col1, col2, col3 = st.columns(3)
+        with col1:
+            st.metric("เทมเพลตทั้งหมด", len(self.template_manager.list_templates()))
+        with col2:
+            system_status = self.dicom_security.check_system()
+            st.metric("สถานะระบบ", "พร้อมใช้งาน" if system_status["viewer_ready"] else "ไม่พร้อม")
+        with col3:
+            usage_stats = self.dicom_monitor.analyze_usage(days=7)
+            st.metric("การใช้งานสัปดาห์นี้", usage_stats.get("total_views", 0))
+            
+        # แสดงกราฟการใช้งาน
+        st.subheader("📈 สถิติการใช้งาน")
+        usage_data = pd.DataFrame(usage_stats.get("daily_usage", []))
+        if not usage_data.empty:
+            fig = px.line(usage_data, x="date", y="count", title="การใช้งานรายวัน")
+            st.plotly_chart(fig, use_container_width=True)
+            
+    def render_template_manager(self):
+        """แสดงหน้าจัดการเทมเพลต"""
+        st.title("📝 จัดการเทมเพลต")
         
-        for template in templates:
-            with st.expander(f"📄 {template['name']}", expanded=False):
-                st.write(f"**คำอธิบาย:** {template['description']}")
-                st.write(f"**สร้างเมื่อ:** {template['created_at']}")
+        # แสดงฟอร์มสร้างเทมเพลตใหม่
+        with st.expander("➕ สร้างเทมเพลตใหม่", expanded=False):
+            col1, col2 = st.columns(2)
+            with col1:
+                name = st.text_input("ชื่อเทมเพลต")
+                description = st.text_area("คำอธิบาย")
+            with col2:
+                uploaded_file = st.file_uploader("อัปโหลดไฟล์ Excel", type=['xlsx'])
                 
-                col1, col2 = st.columns(2)
+            if st.button("สร้างเทมเพลต"):
+                if name and uploaded_file:
+                    # บันทึกไฟล์และสร้างเทมเพลต
+                    temp_path = Path("temp") / uploaded_file.name
+                    temp_path.parent.mkdir(exist_ok=True)
+                    temp_path.write_bytes(uploaded_file.getvalue())
+                    
+                    if self.template_manager.add_template(name, description, temp_path):
+                        st.success("สร้างเทมเพลตสำเร็จ")
+                    else:
+                        st.error("เกิดข้อผิดพลาดในการสร้างเทมเพลต")
+                else:
+                    st.warning("กรุณากรอกข้อมูลให้ครบถ้วน")
+                    
+        # แสดงรายการเทมเพลต
+        st.subheader("📋 รายการเทมเพลต")
+        templates = self.template_manager.list_templates()
+        
+        for template_id, template in templates.items():
+            with st.container():
+                col1, col2, col3 = st.columns([3, 1, 1])
                 with col1:
-                    if st.button("แก้ไข", key=f"edit_{template['id']}"):
-                        return {"action": "edit", "template_id": template['id']}
+                    st.write(f"**{template['name']}**")
+                    st.write(template['description'])
                 with col2:
-                    if st.button("ดูตัวอย่าง", key=f"preview_{template['id']}"):
-                        return {"action": "preview", "template_id": template['id']}
+                    if st.button("แก้ไข", key=f"edit_{template_id}"):
+                        st.session_state.editing_template = template_id
+                with col3:
+                    if st.button("ลบ", key=f"delete_{template_id}"):
+                        if self.template_manager.delete_template(template_id):
+                            st.success("ลบเทมเพลตสำเร็จ")
+                            st.rerun()
+                st.divider()
+                
+    def render_dicom_viewer(self):
+        """แสดงหน้า DICOM Viewer"""
+        st.title("🖼️ DICOM Viewer")
+        
+        # เลือกโฟลเดอร์หรือไฟล์
+        st.subheader("📂 เลือกไฟล์ DICOM")
+        dicom_path = st.text_input("พาธของไฟล์หรือโฟลเดอร์ DICOM")
+        
+        col1, col2 = st.columns(2)
+        with col1:
+            if st.button("เปิดดูภาพ", use_container_width=True):
+                if dicom_path:
+                    path = Path(dicom_path)
+                    if self.dicom_viewer.view_image(path):
+                        st.success("เปิดภาพสำเร็จ")
+                        # บันทึกการใช้งาน
+                        self.dicom_monitor.log_viewer_usage(
+                            "user1", path, "view", duration=None
+                        )
+                    else:
+                        st.error("เกิดข้อผิดพลาดในการเปิดภาพ")
+                else:
+                    st.warning("กรุณาระบุพาธของไฟล์หรือโฟลเดอร์")
+                    
+        with col2:
+            if st.button("แปลงเป็น Excel", use_container_width=True):
+                if dicom_path:
+                    path = Path(dicom_path)
+                    if path.is_dir():
+                        df = self.dicom_integration.dicom_to_excel(path)
+                        st.dataframe(df)
                         
-        return None
+                        # บันทึกเป็นไฟล์ Excel
+                        output_path = Path("output") / f"dicom_data_{datetime.now():%Y%m%d_%H%M%S}.xlsx"
+                        output_path.parent.mkdir(exist_ok=True)
+                        df.to_excel(output_path, index=False)
+                        st.success(f"บันทึกข้อมูลไปยัง: {output_path}")
+                    else:
+                        st.warning("กรุณาเลือกโฟลเดอร์ที่มีไฟล์ DICOM")
+                else:
+                    st.warning("กรุณาระบุพาธของโฟลเดอร์")
+                    
+    def render_data_processing(self):
+        """แสดงหน้าประมวลผลข้อมูล"""
+        st.title("⚙️ ประมวลผลข้อมูล")
         
-    def render_preview(self, preview_data: Dict[str, Any]):
-        """แสดงตัวอย่างเทมเพลต"""
-        st.header("ตัวอย่างเทมเพลต")
-        st.dataframe(preview_data)
+        uploaded_file = st.file_uploader("อัปโหลดไฟล์ Excel", type=['xlsx'])
+        if uploaded_file:
+            # บันทึกไฟล์ชั่วคราว
+            temp_path = Path("temp") / uploaded_file.name
+            temp_path.parent.mkdir(exist_ok=True)
+            temp_path.write_bytes(uploaded_file.getvalue())
+            
+            # ประมวลผลไฟล์
+            processor = ExcelProcessor(temp_path)
+            result = processor.process_file()
+            
+            if result['status'] == 'success':
+                st.success("ประมวลผลข้อมูลสำเร็จ")
+                st.dataframe(result['data'])
+                
+                # บันทึกผลลัพธ์
+                output_path = Path("output") / f"processed_{uploaded_file.name}"
+                output_path.parent.mkdir(exist_ok=True)
+                pd.DataFrame(result['data']).to_excel(output_path, index=False)
+                st.success(f"บันทึกผลลัพธ์ไปยัง: {output_path}")
+            else:
+                st.error(f"เกิดข้อผิดพลาด: {result.get('error', 'Unknown error')}")
+                
+    def render_security(self):
+        """แสดงหน้าระบบความปลอดภัย"""
+        st.title("🔒 ระบบความปลอดภัย")
         
-    def show_success(self, message: str):
-        """แสดงข้อความสำเร็จ"""
-        st.success(message)
+        # แสดงการตั้งค่าความปลอดภัย
+        st.subheader("⚙️ การตั้งค่าความปลอดภัย")
+        config = self.dicom_security._load_config()
         
-    def show_error(self, message: str):
-        """แสดงข้อความผิดพลาด"""
-        st.error(message)
-
-# สร้าง instance ของ UIManager
-ui_manager = UIManager()
+        col1, col2 = st.columns(2)
+        with col1:
+            encryption = st.checkbox("เข้ารหัสข้อมูลอัตโนมัติ", 
+                                  value=config.get("encryption_enabled", True))
+            anonymization = st.checkbox("ลบข้อมูลส่วนตัวอัตโนมัติ",
+                                     value=config.get("anonymization_enabled", True))
+        with col2:
+            access_log = st.checkbox("บันทึกการเข้าถึง",
+                                  value=config.get("access_log_enabled", True))
+            backup = st.checkbox("สำรองข้อมูลอัตโนมัติ",
+                              value=config.get("backup_enabled", True))
+            
+        if st.button("บันทึกการตั้งค่า"):
+            updates = {
+                "encryption_enabled": encryption,
+                "anonymization_enabled": anonymization,
+                "access_log_enabled": access_log,
+                "backup_enabled": backup
+            }
+            if self.dicom_security.update_security_settings(updates):
+                st.success("บันทึกการตั้งค่าสำเร็จ")
+            else:
+                st.error("เกิดข้อผิดพลาดในการบันทึกการตั้งค่า")
+                
+        # แสดงประวัติการเข้าถึง
+        st.subheader("📋 ประวัติการเข้าถึง")
+        days = st.slider("แสดงข้อมูลย้อนหลัง", 1, 30, 7)
+        
+        alerts = self.dicom_monitor.get_error_summary(days)
+        if alerts:
+            df = pd.DataFrame(list(alerts.items()), 
+                            columns=['ประเภทข้อผิดพลาด', 'จำนวนครั้ง'])
+            st.dataframe(df)
+            
+            # แสดงกราฟ
+            fig = px.pie(df, values='จำนวนครั้ง', names='ประเภทข้อผิดพลาด',
+                        title='สัดส่วนข้อผิดพลาด')
+            st.plotly_chart(fig, use_container_width=True)
+        else:
+            st.info("ไม่พบข้อผิดพลาดในช่วงเวลาที่เลือก")
+            
+    def render_monitoring(self):
+        """แสดงหน้าติดตามการใช้งาน"""
+        st.title("📊 ติดตามการใช้งาน")
+        
+        # เลือกช่วงเวลา
+        col1, col2 = st.columns(2)
+        with col1:
+            days = st.selectbox("ช่วงเวลา", [7, 14, 30, 90], index=0)
+        with col2:
+            st.write("") # เว้นว่างไว้สำหรับความสมดุล
+            
+        # วิเคราะห์การใช้งาน
+        usage_stats = self.dicom_monitor.analyze_usage(days)
+        
+        # แสดงตัวเลขสำคัญ
+        col1, col2, col3, col4 = st.columns(4)
+        with col1:
+            st.metric("จำนวนการดู", usage_stats.get("total_views", 0))
+        with col2:
+            st.metric("จำนวนการแก้ไข", usage_stats.get("total_edits", 0))
+        with col3:
+            st.metric("ผู้ใช้ที่ใช้งาน", usage_stats.get("unique_users", 0))
+        with col4:
+            st.metric("ไฟล์ที่เปิดดู", usage_stats.get("unique_files", 0))
+            
+        # แสดงกราฟการใช้งาน
+        st.subheader("📈 การใช้งานรายวัน")
+        if "daily_usage" in usage_stats:
+            df = pd.DataFrame(usage_stats["daily_usage"])
+            fig = px.line(df, x="date", y="count", title="จำนวนการใช้งานรายวัน")
+            st.plotly_chart(fig, use_container_width=True)
+            
+        # แสดงผู้ใช้ที่ใช้งานมากที่สุด
+        st.subheader("👥 ผู้ใช้ที่ใช้งานมากที่สุด")
+        if "most_active_users" in usage_stats:
+            df = pd.DataFrame(list(usage_stats["most_active_users"].items()),
+                            columns=["ผู้ใช้", "จำนวนครั้ง"])
+            fig = px.bar(df, x="ผู้ใช้", y="จำนวนครั้ง",
+                        title="ผู้ใช้ที่ใช้งานมากที่สุด")
+            st.plotly_chart(fig, use_container_width=True)
+            
+    def run(self):
+        """เริ่มการทำงานของ UI"""
+        self.render_sidebar()
+        
+        if st.session_state.active_tab == "หน้าหลัก":
+            self.render_main_page()
+        elif st.session_state.active_tab == "จัดการเทมเพลต":
+            self.render_template_manager()
+        elif st.session_state.active_tab == "DICOM Viewer":
+            self.render_dicom_viewer()
+        elif st.session_state.active_tab == "ประมวลผลข้อมูล":
+            self.render_data_processing()
+        elif st.session_state.active_tab == "ระบบความปลอดภัย":
+            self.render_security()
+        elif st.session_state.active_tab == "ติดตามการใช้งาน":
+            self.render_monitoring()
 
 def main():
-    """ฟังก์ชันหลักของแอพพลิเคชัน"""
-    selected = ui_manager.render_sidebar()
-    
-    if selected == "หน้าแรก":
-        st.title("ยินดีต้อนรับสู่ Excel Processor")
-        st.write("ระบบประมวลผล Excel อัจฉริยะ พร้อมระบบ AI วิเคราะห์และจัดการเทมเพลตอัตโนมัติ")
-        
-    elif selected == "อัปโหลดไฟล์":
-        st.title("อัปโหลดไฟล์")
-        upload_data = ui_manager.render_upload_form()
-        if upload_data:
-            # เรียกใช้ business logic
-            pass
+    """ฟังก์ชันหลัก"""
+    ui = UIManager()
+    ui.run()
 
 if __name__ == "__main__":
     main()
